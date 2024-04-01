@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 export const getStockData = () => {
-    let url = "https://3wb4dtrzej.execute-api.us-east-1.amazonaws.com/prod/stock-price";
+    let url = "https://pcg7asbzqd.execute-api.us-east-1.amazonaws.com/prod/stock-price";
 
     return axios.get(url)
         .then((response) => {
