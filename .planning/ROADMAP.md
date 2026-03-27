@@ -9,7 +9,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Security & Cleanup** — Eliminate active vulnerabilities and stale infrastructure before anything else is built on top of them
+- [x] **Phase 1: Security & Cleanup** — Eliminate active vulnerabilities and stale infrastructure before anything else is built on top of them
 - [ ] **Phase 2: Backend Performance** — Replace the broken async/cache foundation so the server can handle concurrent load and scale to 100 tickers
 - [ ] **Phase 3: Data Pipeline Expansion** — Scale from 15 to 102 S&P 100 tickers with batched fetching, tiered news, and deduplication
 - [ ] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives
@@ -95,7 +95,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security & Cleanup | 0/3 | In progress | - |
+| 1. Security & Cleanup | 3/3 | ✅ Complete | 2026-03-27 |
 | 2. Backend Performance | 0/? | Not started | - |
 | 3. Data Pipeline Expansion | 0/? | Not started | - |
 | 4. Sentiment Intelligence Upgrade | 0/? | Not started | - |
@@ -107,16 +107,16 @@ Plans:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
-| SEC-04 | Phase 1 | Pending |
-| SEC-05 | Phase 1 | Pending |
-| SEC-06 | Phase 1 | Pending |
-| CLEAN-01 | Phase 1 | Pending |
-| CLEAN-02 | Phase 1 | Pending |
-| CLEAN-03 | Phase 1 | Pending |
-| CLEAN-04 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | ✅ Complete |
+| SEC-02 | Phase 1 | ✅ Complete |
+| SEC-03 | Phase 1 | ✅ Complete |
+| SEC-04 | Phase 1 | ✅ Complete |
+| SEC-05 | Phase 1 | ✅ Complete |
+| SEC-06 | Phase 1 | ✅ Complete |
+| CLEAN-01 | Phase 1 | ✅ Complete |
+| CLEAN-02 | Phase 1 | ✅ Complete |
+| CLEAN-03 | Phase 1 | ✅ Complete |
+| CLEAN-04 | Phase 1 | ✅ Complete |
 | PERF-01 | Phase 2 | Pending |
 | PERF-02 | Phase 2 | Pending |
 | PERF-03 | Phase 2 | Pending |
