@@ -1,15 +1,16 @@
 import axios from 'axios';
 
-export const getStockData = () => {
-  let url = "https://ip8z0jodq4.execute-api.us-east-1.amazonaws.com/test/stock-price";
+const API_BASE = process.env.REACT_APP_API_URL;
 
-  return axios.get(url)
-    .then((response) => {
-      console.log(response.data);
-      return response.data;
-    })
-    .catch((error) => {
-      console.error(error);
-      throw new Error('Something went wrong');
-    });
-}
+export const getStockData = () => {
+    const url = `${API_BASE}/stock-price`;
+
+    return axios.get(url)
+        .then((response) => {
+            return response.data;
+        })
+        .catch((error) => {
+            console.error('getStockData error:', error);
+            throw new Error('Failed to fetch stock data');
+        });
+};
