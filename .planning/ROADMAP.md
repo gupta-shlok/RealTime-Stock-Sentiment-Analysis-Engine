@@ -30,7 +30,12 @@
   3. A request to `/analyze-custom` without a valid `X-API-Key` header returns HTTP 403, not a sentiment result
   4. A request to `/analyze-custom?text=` with a string exceeding 2000 characters returns HTTP 422 with a validation error
   5. `docker build` on both the backend and frontend images completes without baking any `.env` file into a layer — `docker history` shows no `.env` content; the frontend build reads `REACT_APP_API_URL` from the environment at runtime, not from a hardcoded AWS URL fallback
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Backend security hardening: CORS fix, API key auth, pydantic-settings, input validation (SEC-01–04)
+- [ ] 01-02-PLAN.md — Docker and git hygiene: .dockerignore files, expanded .gitignore, credential scrub from fetch_latest_news.py (SEC-05, SEC-06)
+- [ ] 01-03-PLAN.md — Frontend cleanup: remove hardcoded AWS URLs, remove MUI v4 + aws-amplify packages (CLEAN-01–04)
 
 ### Phase 2: Backend Performance
 **Goal**: The FastAPI event loop is non-blocking, models load once before the server accepts traffic, and all cache reads respect TTL expiry.
@@ -90,7 +95,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security & Cleanup | 0/? | Not started | - |
+| 1. Security & Cleanup | 0/3 | In progress | - |
 | 2. Backend Performance | 0/? | Not started | - |
 | 3. Data Pipeline Expansion | 0/? | Not started | - |
 | 4. Sentiment Intelligence Upgrade | 0/? | Not started | - |
