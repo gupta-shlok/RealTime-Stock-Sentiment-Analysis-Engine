@@ -1,0 +1,29 @@
+# Secrets — never bake into image layers
+.env
+.env.local
+.env.*.local
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Development artifacts
+.git/
+.gitignore
+*.md
+tests/
+
+# ML model cache (large, fetched at runtime via HuggingFace)
+.cache/
+huggingface/
+*.bin
+*.safetensors
+
+# macOS / Windows artifacts
+.DS_Store
+Thumbs.db

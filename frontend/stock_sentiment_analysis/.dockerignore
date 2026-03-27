@@ -1,0 +1,19 @@
+# Secrets — never bake into image layers
+.env
+.env.local
+.env.*.local
+
+# Build output (rebuilt inside Docker)
+build/
+node_modules/
+
+# Development artifacts
+.git/
+*.md
+
+# Amplify config (contains AWS account info)
+amplify/
+
+# macOS / Windows artifacts
+.DS_Store
+Thumbs.db
