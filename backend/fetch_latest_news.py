@@ -1,3 +1,4 @@
+import os
 import yfinance as yf
 import json
 from config import *
@@ -5,9 +6,9 @@ from datetime import datetime
 import boto3
 
 
-AWS_ACCESS_KEY_ID = 'AKIA3FLD2AYWN7TZUV5X'
-AWS_SECRET_ACCESS_KEY = '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'
-S3_BUCKET_NAME = 'fetch-latest-news'
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME", "fetch-latest-news")
 
 def clean_time(news):
     for item in news:

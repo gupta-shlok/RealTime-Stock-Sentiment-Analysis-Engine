@@ -1,4 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / Secrets — CRITICAL: never commit these
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/**/.env
+**/.env
+*.pem
+*.key
+secrets/
+**/secrets/
+
+# Docker overrides (often contain local secrets)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React build artifacts
+frontend/**/build/
+
+# IDE
 .idea/
 /.idea/*
+.vscode/
+*.swp
+*.swo
+
+# Data and test artifacts
 data/
-node_modules/
+*.csv
+*.json.bak
+test_output.json
+
+# ML model cache (large binaries — fetched at runtime from HuggingFace)
+.cache/
+huggingface/
+*.bin
+*.safetensors
+
+# AWS Amplify config (contains account ARNs, stack IDs, deployment bucket names)
+frontend/**/amplify/team-provider-info.json
+frontend/**/amplify/.config/local-*
+frontend/**/amplify/logs/
+frontend/**/amplify/mock-data/
+frontend/**/amplify/mock-api-resources/
+frontend/**/amplify/backend/amplify-meta.json
+frontend/**/amplify/backend/.temp/
+aws-exports.js
+awsconfiguration.json
+amplifyconfiguration.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
