@@ -9,7 +9,11 @@ python-dotenv
 requests
 transformers>=4.45.0
 accelerate>=0.34.0
-bitsandbytes>=0.45.0
+# bitsandbytes>=0.45.0  # Not needed; Qwen uses full precision on CPU/GPU
 scipy
 pydantic-settings>=2.0.0
 cachetools
+
+# Testing
+pytest==9.0.2
+pytest-asyncio==1.3.0
