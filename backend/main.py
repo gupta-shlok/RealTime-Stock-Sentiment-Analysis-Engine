@@ -12,32 +12,241 @@ import socket
 import asyncio
 import uuid
 from asyncio import Queue
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification
 import torch
+import torch.nn.functional as F
 from config import get_settings, Settings
 from contextlib import asynccontextmanager
 from cachetools import TTLCache
+import pandas as pd
+from tickers import TICKER_DATA, ALL_TICKERS, SECTOR_TICKERS
+
+# Tier 2 rotation offset for aggregated news feed
+TIER2_OFFSET = 0
 
 # Set a global timeout for network requests
 socket.setdefaulttimeout(10)
 
 # Model placeholders (set in lifespan)
-finbert_pipe = None
+# finbert_pipe removed — using AutoModelForSequenceClassification directly (D-03)
 qwen_tokenizer = None
 qwen_model = None
+
+# ─── FinBERT scoring (SENT-01) ──────────────────────────────────────────────
+
+def _finbert_infer(text: str):
+    """Synchronous FinBERT forward pass. Run via asyncio.to_thread()."""
+    inputs = app.state.finbert_tokenizer(
+        text[:512],
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+    ).to(app.state.finbert_model.device)
+    with torch.no_grad():
+        outputs = app.state.finbert_model(**inputs)
+    probs = F.softmax(outputs.logits, dim=-1)[0]
+    # id2label from ProsusAI/finbert config.json: {0: positive, 1: negative, 2: neutral}
+    score = probs[0].item() - probs[1].item()
+    confidence = probs.max().item()
+    return score, confidence
+
+
+def finbert_score(text: str) -> tuple:
+    """
+    Run FinBERT full-probability scoring (SENT-01, D-01, D-02).
+    Returns (score, confidence):
+      score      = P(positive) - P(negative)  in [-1, 1]
+      confidence = max(softmax(logits))        in [0, 1]
+
+    NOTE: Returns a TUPLE. All callers must unpack:
+      score, conf = finbert_score(text)   <- correct
+      score = finbert_score(text)[0]      <- also correct
+      score = finbert_score(text)         <- WRONG -- will break
+    """
+    try:
+        score, confidence = _finbert_infer(text)
+        return score, confidence
+    except Exception as e:
+        print(f"FinBERT error: {e}", flush=True)
+        return 0.0, 0.0
+
+
+def analyze_sentiment_ensemble(text: str) -> float:
+    """Quick ensemble score for bulk news tagging (FinBERT only for speed).
+    Returns bare float for /news endpoint display (D-06: threshold doesn't affect display).
+    """
+    score, _ = finbert_score(text)
+    return score
+
+
+# ─── Confidence-weighted aggregation (SENT-02) ──────────────────────────────
+
+def aggregate_daily_score(articles: list) -> float:
+    """
+    Compute confidence-weighted mean of article scores (SENT-02).
+    Filters out articles where confidence < FINBERT_MIN_CONFIDENCE (D-04, D-05).
+    Returns None if no articles pass the threshold (day is skipped in persistence).
+
+    articles: list of {"score": float, "confidence": float}
+    """
+    settings = get_settings()
+    threshold = settings.finbert_min_confidence  # default 0.55
+    filtered = [
+        (a["score"], a["confidence"])
+        for a in articles
+        if a.get("confidence", 0.0) >= threshold
+    ]
+    if not filtered:
+        return None
+    numerator = sum(s * c for s, c in filtered)
+    denominator = sum(c for _, c in filtered)
+    return numerator / denominator
+
+
+# ─── Persistence helpers ─────────────────────────────────────────────────────
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+SCORES_FILE = os.path.join(DATA_DIR, "sentiment_scores.json")
+NARRATIVES_FILE = os.path.join(DATA_DIR, "narratives.json")
+
+
+def _load_scores_file() -> dict:
+    """Load sentiment_scores.json; returns {} if missing or corrupt."""
+    try:
+        with open(SCORES_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        if not isinstance(e, FileNotFoundError):
+            print(f"Warning: sentiment_scores.json corrupt, using empty dict: {e}", flush=True)
+        return {}
+
+
+def _load_narratives_file() -> dict:
+    """Load narratives.json; returns {} if missing or corrupt."""
+    try:
+        with open(NARRATIVES_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        if not isinstance(e, FileNotFoundError):
+            print(f"Warning: narratives.json corrupt, using empty dict: {e}", flush=True)
+        return {}
+
+
+def _write_json_atomic(path: str, data: dict):
+    """Atomic JSON write using os.replace() (safe on Windows and Linux, D-10)."""
+    import tempfile
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+# ─── Background scoring task (D-08, D-09, D-10) ─────────────────────────────
+
+def _run_scoring_cycle():
+    """
+    Synchronous scoring cycle — called from asyncio.to_thread().
+    Reads news_cache["news"], scores articles, writes sentiment_scores.json.
+    Format: { "AAPL": { "2026-03-28": 0.34, ... }, ... }
+    Prunes entries older than 35 days on each write (D-09).
+    """
+    from datetime import timezone, timedelta
+    from collections import defaultdict
+
+    cached_news = news_cache.get("news", [])
+    if not cached_news:
+        return
+
+    # Group articles by (ticker, date)
+    # Expected news item shape from /news endpoint:
+    # {"ticker": "AAPL", "publishTime": "2026-03-28 10:30:00", "title": "...", ...}
+    ticker_date_articles = defaultdict(lambda: defaultdict(list))
+
+    for article in cached_news:
+        ticker = article.get("ticker")
+        if not ticker:
+            continue
+        publish_time = article.get("publishTime", "")
+        try:
+            date_str = publish_time[:10]  # "2026-03-28"
+            datetime.strptime(date_str, "%Y-%m-%d")  # validate format
+        except (ValueError, TypeError):
+            continue
+        title = article.get("title", "")
+        if not title:
+            continue
+        score, confidence = finbert_score(title)
+        ticker_date_articles[ticker][date_str].append({
+            "score": score,
+            "confidence": confidence,
+        })
+
+    # Compute daily scores
+    new_scores = _load_scores_file()  # load existing (preserve history across cycles)
+    for ticker, date_articles in ticker_date_articles.items():
+        if ticker not in new_scores:
+            new_scores[ticker] = {}
+        for date_str, articles in date_articles.items():
+            daily = aggregate_daily_score(articles)
+            if daily is not None:
+                new_scores[ticker][date_str] = round(daily, 4)
+
+    # Prune entries older than 35 days (D-09)
+    cutoff = (datetime.now(timezone.utc).date() - timedelta(days=35)).isoformat()
+    for ticker in list(new_scores.keys()):
+        new_scores[ticker] = {
+            d: v for d, v in new_scores[ticker].items() if d >= cutoff
+        }
+        if not new_scores[ticker]:
+            del new_scores[ticker]
+
+    _write_json_atomic(SCORES_FILE, new_scores)
+    print(f"Scoring cycle complete: {len(new_scores)} tickers updated.", flush=True)
+
+
+async def sentiment_scoring_task():
+    """
+    Background task: runs every 5 minutes, writes sentiment_scores.json (D-08).
+    Started via asyncio.create_task() in lifespan, 10s after startup.
+    """
+    await asyncio.sleep(10)  # Allow model warm-up to complete first
+    while True:
+        try:
+            await asyncio.to_thread(_run_scoring_cycle)
+        except Exception as e:
+            print(f"Sentiment scoring task error: {e}", flush=True)
+        await asyncio.sleep(300)  # 5 minutes
+
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global finbert_pipe, qwen_tokenizer, qwen_model
-    # Load FinBERT
+    global qwen_tokenizer, qwen_model
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    finbert_pipe = pipeline("sentiment-analysis", model="ProsusAI/finbert", device=0 if device == "cuda" else -1)
-    app.state.finbert_pipe = finbert_pipe
-    # Warm-up FinBERT
-    finbert_pipe("Warm-up sentence.")
 
-    # Load Qwen2.5-1.5B-Instruct
+    # Load FinBERT — AutoModelForSequenceClassification (replaces pipeline, D-01, D-03)
+    FINBERT_MODEL_ID = "ProsusAI/finbert"
+    finbert_tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL_ID)
+    finbert_model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL_ID)
+    finbert_model.eval()
+    if device == "cuda":
+        finbert_model = finbert_model.cuda()
+    app.state.finbert_tokenizer = finbert_tokenizer
+    app.state.finbert_model = finbert_model
+
+    # Warm-up FinBERT (eliminates first-request latency spike)
+    _warmup_score, _ = finbert_score("Warm-up sentence for FinBERT.")
+    print(f"FinBERT loaded. Warm-up score: {_warmup_score:.3f}", flush=True)
+
+    # Load Qwen2.5-1.5B-Instruct (unchanged from Phase 2)
     QWEN_MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
     qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL_ID)
     qwen_model = AutoModelForCausalLM.from_pretrained(
@@ -47,6 +256,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.qwen_tokenizer = qwen_tokenizer
     app.state.qwen_model = qwen_model
+
     # Warm-up Qwen (single generate call with dummy input)
     messages = [
         {"role": "system", "content": "You are a financial analyst."},
@@ -63,8 +273,11 @@ async def lifespan(app: FastAPI):
             pad_token_id=qwen_tokenizer.eos_token_id
         )
     print("Models loaded and warmed up.", flush=True)
-    # Start background worker for Qwen jobs
+
+    # Start background workers
     asyncio.create_task(qwen_worker())
+    asyncio.create_task(sentiment_scoring_task())  # D-08: 5-minute background scorer
+
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -93,6 +306,9 @@ def require_api_key(
     api_key: str = Security(_api_key_header),
     settings: Settings = Depends(get_settings),
 ) -> str:
+    # Allow bypass if api_key is set to default dev value (free local mode)
+    if settings.api_key == "dev-key-optional":
+        return "dev-key-optional"
     if not api_key or api_key != settings.api_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -101,7 +317,6 @@ def require_api_key(
     return api_key
 
 # Constants
-selected_symbols = ['AAPL', 'AMZN', 'AMD', 'BA', 'BX', 'COST', 'CRM', 'DIS', 'GOOG', 'GS', 'IBM', 'INTC', 'MS', 'NKE', 'NVDA']
 
 def get_qwen_analysis(text: str) -> tuple:
     """Use Qwen2.5-1.5B to assess sentiment and provide concise reasoning."""
@@ -157,27 +372,6 @@ def get_qwen_analysis(text: str) -> tuple:
         return 0.0, "Reasoning unavailable."
 
 
-def finbert_score(text: str) -> float:
-    """Run FinBERT and return a signed score in [-1, 1]."""
-    try:
-        result = finbert_pipe(text[:512])[0]
-        label = result['label']
-        score = result['score']
-        if label == 'positive':
-            return score
-        elif label == 'negative':
-            return -score
-        return 0.0
-    except Exception as e:
-        print(f"FinBERT error: {e}", flush=True)
-        return 0.0
-
-
-def analyze_sentiment_ensemble(text: str) -> float:
-    """Quick ensemble score for bulk news tagging (FinBERT only for speed)."""
-    return finbert_score(text)
-
-
 def label_from_score(score: float) -> str:
     if score > 0.15:
         return "Bullish"
@@ -194,7 +388,7 @@ async def qwen_worker():
         text = job["text"]
         try:
             # Run FinBERT scoring (synchronous, fast)
-            fb_val = finbert_score(text)
+            fb_val, _ = finbert_score(text)  # unpack (score, confidence) tuple
             # Run Qwen analysis in a thread to avoid blocking event loop
             qwen_val, reason = await asyncio.to_thread(get_qwen_analysis, text)
             # Blend scores: 60% FinBERT + 40% Qwen
@@ -233,61 +427,98 @@ async def get_stock_price():
     if "stock_data" in stock_cache:
         return stock_cache["stock_data"]
 
-    # Helper function to fetch data for a single ticker (runs in thread)
-    def fetch_ticker_data(ticker: str) -> dict:
+    symbols = ALL_TICKERS
+    # Split into two batches of 50 each (for 102 tickers => 50 + 52)
+    if len(symbols) > 50:
+        batches = [symbols[:50], symbols[50:]]
+    else:
+        batches = [symbols]
+
+    all_data = {}  # ticker -> data
+
+    for i, batch in enumerate(batches):
+        if not batch:
+            continue
         try:
-            stock = yf.Ticker(ticker)
-            hist_1y = stock.history(period='1y', interval='1d').reset_index()
-            if hist_1y.empty:
-                return None
-            latest_data = hist_1y.tail(2)
-            if len(latest_data) >= 2:
-                current_close = latest_data['Close'].iloc[-1]
-                previous_close = latest_data['Close'].iloc[-2]
-            else:
-                current_close = hist_1y['Close'].iloc[-1]
-                previous_close = current_close
-            percent_change = (((current_close - previous_close) / previous_close) * 100) if previous_close != 0 else 0
-            hist_1y['Month'] = hist_1y['Date'].dt.to_period('M')
-            monthly_data = hist_1y.groupby('Month').agg({
-                'Open': 'first',
-                'Close': 'last',
-                'High': 'max',
-                'Low': 'min',
-            }).reset_index()
-            monthly_data['Month'] = monthly_data['Month'].dt.strftime('%Y-%m')
-            return {
-                "current_close": float(current_close),
-                "previous_close": float(previous_close),
-                "percent_change": float(percent_change),
-                "history": monthly_data.to_dict(orient='records')
-            }
+            batch_df = yf.download(batch, period='1y', interval='1d', threads=False)
         except Exception as e:
-            print(f"Error fetching stock data for {ticker}: {e}", flush=True)
-            return None
+            print(f"Error downloading batch for {len(batch)} tickers: {e}", flush=True)
+            continue
 
-    # Concurrent fetch with semaphore limit (max 10 concurrent)
-    semaphore = asyncio.Semaphore(10)
-    async def bounded_fetch(ticker: str):
-        async with semaphore:
-            return await asyncio.to_thread(fetch_ticker_data, ticker)
+        for ticker in batch:
+            try:
+                # Extract ticker-specific DataFrame from batch
+                if isinstance(batch_df.columns, pd.MultiIndex):
+                    # Determine which level contains ticker symbols (yfinance may use either orientation)
+                    level0_vals = batch_df.columns.get_level_values(0).unique()
+                    level1_vals = batch_df.columns.get_level_values(1).unique()
+                    if ticker in level0_vals:
+                        ticker_df = batch_df.xs(ticker, axis=1, level=0)
+                    elif ticker in level1_vals:
+                        ticker_df = batch_df.xs(ticker, axis=1, level=1)
+                    else:
+                        # Ticker not found in either level, skip
+                        continue
+                else:
+                    ticker_df = batch_df  # single ticker batch
 
-    tasks = [bounded_fetch(t) for t in selected_symbols]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+                if ticker_df.empty:
+                    continue
+                if 'Close' not in ticker_df.columns:
+                    continue
 
-    all_data = {}
-    for ticker, result in zip(selected_symbols, results):
-        if isinstance(result, Exception):
-            print(f"Error fetching {ticker}: {result}", flush=True)
-        elif result:  # not None and not empty
-            all_data[ticker] = result
+                close_series = ticker_df['Close']
+                if len(close_series) >= 2:
+                    current_close = close_series.iloc[-1]
+                    previous_close = close_series.iloc[-2]
+                else:
+                    current_close = close_series.iloc[-1]
+                    previous_close = current_close
+                percent_change = ((current_close - previous_close) / previous_close * 100) if previous_close != 0 else 0.0
 
-    stock_cache["stock_data"] = all_data
-    return all_data
+                # Monthly aggregation: group by month from DatetimeIndex
+                if not isinstance(ticker_df.index, pd.DatetimeIndex):
+                    # Skip if index is not datetime
+                    history = []
+                else:
+                    ticker_df['Month'] = ticker_df.index.to_period('M')
+                    monthly_agg = ticker_df.groupby('Month').agg({
+                        'Open': 'first',
+                        'Close': 'last',
+                        'High': 'max',
+                        'Low': 'min'
+                    })
+                    monthly_agg = monthly_agg.reset_index()
+                    monthly_agg['Month'] = monthly_agg['Month'].dt.strftime('%Y-%m')
+                    history = monthly_agg.to_dict(orient='records')
+
+                all_data[ticker] = {
+                    "current_close": float(current_close),
+                    "previous_close": float(previous_close),
+                    "percent_change": float(percent_change),
+                    "history": history
+                }
+            except Exception as e:
+                print(f"Error processing {ticker} in batch: {e}", flush=True)
+                continue
+
+        # Polite delay between batches (1.5s) except after last batch
+        if i < len(batches) - 1:
+            await asyncio.sleep(1.5)
+
+    # Reorganize data by GICS sector
+    sector_data = {}
+    for ticker, data in all_data.items():
+        sector = TICKER_DATA.get(ticker, {}).get('sector', 'Unknown')
+        sector_data.setdefault(sector, {})[ticker] = data
+
+    stock_cache["stock_data"] = sector_data
+    return sector_data
 
 
 @app.get("/news")
 def get_news(ticker: str = None):
+    global TIER2_OFFSET
     if not ticker and "news" in news_cache:
         return news_cache["news"]
 
@@ -299,7 +530,35 @@ def get_news(ticker: str = None):
         )
     }
 
-    search_symbols = [ticker] if ticker else selected_symbols[:5]
+    # Determine ticker list based on tiering or single-ticker request
+    if ticker:
+        search_symbols = [ticker]
+        tier2_pool_len = 0  # not used for single ticker
+    else:
+        # Build tiered selection: Tier1 (top 20 by market cap) + rotating Tier2 slice (40 tickers from next 60)
+        pairs = []
+        for t in ALL_TICKERS:
+            data = TICKER_DATA.get(t, {})
+            mc = data.get('market_cap', 0)
+            if mc and mc > 0:
+                pairs.append((t, mc))
+        # Sort descending by market cap
+        sorted_tickers = [t for t, _ in sorted(pairs, key=lambda x: x[1], reverse=True)]
+        tier1 = sorted_tickers[:20]
+        tier2_pool = sorted_tickers[20:60]
+        tier3 = sorted_tickers[60:]  # excluded from aggregated feed
+        # Compute rotating Tier2 selection
+        n = len(tier2_pool)
+        if n > 0:
+            start = TIER2_OFFSET % n
+            tier2 = [tier2_pool[(start + i) % n] for i in range(min(40, n))]
+        else:
+            tier2 = []
+        search_symbols = tier1 + tier2
+        tier2_pool_len = n
+        print(f"Tiered news: Tier1={len(tier1)}, Tier2={len(tier2)} (offset={TIER2_OFFSET}), Tier3={len(tier3)}", flush=True)
+
+    seen_uuids = set()
 
     for symbol in search_symbols:
         try:
@@ -310,6 +569,13 @@ def get_news(ticker: str = None):
 
             news_items = data.get("news", [])
             for item in news_items:
+                # Deduplication: skip if UUID already seen
+                uuid = item.get('uuid')
+                if uuid and uuid in seen_uuids:
+                    continue
+                if uuid:
+                    seen_uuids.add(uuid)
+
                 finance_info = item.get("finance", {})
                 premium_config = finance_info.get("premiumFinance", {})
                 is_premium = premium_config.get("isPremiumNews", False)
@@ -330,6 +596,9 @@ def get_news(ticker: str = None):
 
     if not ticker:
         news_cache["news"] = latest_articles
+        # Rotate TIER2_OFFSET for next aggregated call
+        if tier2_pool_len > 0:
+            TIER2_OFFSET = (TIER2_OFFSET + 40) % tier2_pool_len
 
     return latest_articles
 
