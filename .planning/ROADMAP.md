@@ -63,7 +63,11 @@ Plans:
   2. Stock history for all 102 tickers is fetched in 2 batched `yf.download()` calls of 50 tickers each (with a 1.5s polite delay between them), not 102 sequential `Ticker.history()` calls — total fetch time is under 10 seconds on a warm connection
   3. News fetching uses tiered priority: Tier 1 (top 20 by market cap) articles are always fetched every cycle; Tier 2 (next 40) articles rotate across cycles; Tier 3 articles are fetched only on-demand when a specific ticker page is opened
   4. Duplicate news articles that appear for multiple tickers are suppressed — each article UUID appears at most once in the news feed regardless of how many tickers it is associated with
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create tickers.py with S**Plans**: TBDP 100 list and GICS sector/market cap mapping (DATA-01)
+- [ ] 03-02-PLAN.md — Refactor /stock-price to batch yf.download with sector grouping; implement tiered news rotation and UUID deduplication (DATA-02, DATA-03, DATA-04)
 
 ### Phase 4: Sentiment Intelligence Upgrade
 **Goal**: Sentiment scores use the full FinBERT probability distribution, aggregate correctly over time with EMA smoothing, roll up to sector level, and produce Qwen-generated narrative summaries via a non-blocking job queue.
@@ -76,7 +80,11 @@ Plans:
   3. `GET /sentiment-trends?ticker=AAPL&window=7d` returns an EMA-smoothed sentiment time series (span=5 for 7-day, span=20 for 30-day) — the trend line is smoother than a simple rolling mean and weights recent articles more heavily
   4. `GET /sector-sentiment` returns sentiment aggregates for each GICS sector; sectors with fewer than 3 constituent stocks in the data are excluded from the response rather than shown as statistically meaningless single-ticker averages
   5. `GET /stock-narrative/{ticker}` submits a Qwen job (using the same async queue from Phase 2) that generates a concise "why is this stock moving" narrative from the top 8 headlines and their pre-computed FinBERT scores — the narrative is coherent and references specific sentiment signals, not generic filler text
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create tickers.py with S**Plans**: TBDP 100 list and GICS sector/market cap mapping (DATA-01)
+- [ ] 03-02-PLAN.md — Refactor /stock-price to batch yf.download with sector grouping; implement tiered news rotation and UUID deduplication (DATA-02, DATA-03, DATA-04)
 
 ### Phase 5: UI Overhaul & Polish
 **Goal**: The dashboard communicates sentiment + price together at a glance through a heatmap of all 100 stocks, a dual-axis chart overlay, skeleton loaders, auto-refresh, and financial-grade visual conventions.
@@ -89,7 +97,11 @@ Plans:
   3. Auto-refresh runs on a 10-minute interval using a `useInterval` hook; polling pauses automatically when the browser tab is hidden; a 2px `LinearProgress` bar appears at the top of the page during a refresh cycle without dismounting any chart; a "Last updated HH:MM" timestamp is visible at all times and swaps to "Updating..." during the cycle
   4. Every data-dependent component (metric cards, charts, heatmap, news feed) shows a MUI `<Skeleton animation="wave">` placeholder that matches the content height while data is loading — there is no layout shift when data arrives; dark-theme backgrounds show the skeleton at a visible opacity
   5. All fetch failure scenarios display an informative error state with context (which endpoint failed, a retry action) rather than a blank screen or a spinner that runs forever; percent-change figures display as color-tinted pill badges (green background for positive, red for negative) using tabular-nums font rendering so columns stay aligned during live updates
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create tickers.py with S**Plans**: TBDP 100 list and GICS sector/market cap mapping (DATA-01)
+- [ ] 03-02-PLAN.md — Refactor /stock-price to batch yf.download with sector grouping; implement tiered news rotation and UUID deduplication (DATA-02, DATA-03, DATA-04)
 **UI hint**: yes
 
 ---
