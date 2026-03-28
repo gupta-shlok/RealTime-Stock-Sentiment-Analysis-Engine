@@ -48,7 +48,10 @@ Plans:
   3. Concurrent requests to `/stock-price` do not serialize — `run_in_executor` with `asyncio.gather` and a semaphore of 10 fans out yfinance calls in parallel; a batch of 15 tickers resolves in under 5 seconds instead of 15-30 seconds serially
   4. Cached stock data expires after 900 seconds and cached news after 300 seconds — a request made after TTL expiry triggers a fresh fetch, not a stale cache hit; the `if cached is not None:` check (not `if cached:`) handles empty-dict results correctly
   5. Submitting text to `/analyze-custom` returns a `job_id` immediately (under 200ms); polling `GET /analyze-custom/{job_id}` returns `status: "pending"` then `status: "complete"` with results when Qwen finishes — the HTTP thread is never blocked waiting for inference
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Async refactor: lifespan model loading with warm-up, concurrent yfinance via run_in_executor+asyncio.gather+semaphore, TTLCache (900s/300s), Qwen job queue with immediate job_id response and polling endpoint
 
 ### Phase 3: Data Pipeline Expansion
 **Goal**: The backend serves all 102 S&P 100 tickers organized by GICS sector, fetched efficiently in batches, with deduplicated news prioritized by market cap tier.
@@ -96,7 +99,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Security & Cleanup | 3/3 | ✅ Complete | 2026-03-27 |
-| 2. Backend Performance | 0/? | Not started | - |
+| 2. Backend Performance | 0/1 | Not started | - |
 | 3. Data Pipeline Expansion | 0/? | Not started | - |
 | 4. Sentiment Intelligence Upgrade | 0/? | Not started | - |
 | 5. UI Overhaul & Polish | 0/? | Not started | - |
