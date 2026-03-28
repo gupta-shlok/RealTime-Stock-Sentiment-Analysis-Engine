@@ -12,7 +12,7 @@
 - [x] **Phase 1: Security & Cleanup** — Eliminate active vulnerabilities and stale infrastructure before anything else is built on top of them
 - [x] **Phase 2: Backend Performance** — Replace the broken async/cache foundation so the server can handle concurrent load and scale to 100 tickers
 - [x] **Phase 3: Data Pipeline Expansion** — Scale from 15 to 102 S&P 100 tickers with batched fetching, tiered news, and deduplication
-- [ ] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives
+- [x] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives (completed 2026-03-28)
 - [ ] **Phase 5: UI Overhaul & Polish** — Build the flagship visual features (heatmap, dual-axis chart, skeleton loaders, auto-refresh) that make the portfolio story legible at a glance
 
 ---
@@ -85,7 +85,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Test infrastructure: pytest setup, conftest with model mocks, stub test files for SENT-01 through SENT-05 (Wave 0)
 - [x] 04-02-PLAN.md — FinBERT upgrade to full-probability scoring, config FINBERT_MIN_CONFIDENCE, confidence-weighted aggregation, background scoring task + sentiment_scores.json persistence (SENT-01, SENT-02)
-- [ ] 04-03-PLAN.md — Three new endpoints: /sentiment-trends (EMA, SENT-03), /sector-sentiment (exclusion rule, SENT-04), /stock-narrative/{ticker} (Qwen narrative cache, SENT-05)
+- [x] 04-03-PLAN.md — Three new endpoints: /sentiment-trends (EMA, SENT-03), /sector-sentiment (exclusion rule, SENT-04), /stock-narrative/{ticker} (Qwen narrative cache, SENT-05)
 
 ### Phase 5: UI Overhaul & Polish
 **Goal**: The dashboard communicates sentiment + price together at a glance through a heatmap of all 100 stocks, a dual-axis chart overlay, skeleton loaders, auto-refresh, and financial-grade visual conventions.
@@ -109,7 +109,7 @@ Plans:
 | 1. Security & Cleanup | 3/3 | ✅ Complete | 2026-03-27 |
 | 2. Backend Performance | 1/1 | ✅ Complete | 2026-03-28 |
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
-| 4. Sentiment Intelligence Upgrade | 2/3 | In Progress|  |
+| 4. Sentiment Intelligence Upgrade | 3/3 | Complete   | 2026-03-28 |
 | 5. UI Overhaul & Polish | 0/? | Not started | - |
 
 ---
