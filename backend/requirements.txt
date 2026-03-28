@@ -12,3 +12,4 @@ accelerate>=0.34.0
 bitsandbytes>=0.45.0
 scipy
 pydantic-settings>=2.0.0
+cachetools

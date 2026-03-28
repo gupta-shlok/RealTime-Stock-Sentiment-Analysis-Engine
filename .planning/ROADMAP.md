@@ -10,7 +10,7 @@
 ## Phases
 
 - [x] **Phase 1: Security & Cleanup** — Eliminate active vulnerabilities and stale infrastructure before anything else is built on top of them
-- [ ] **Phase 2: Backend Performance** — Replace the broken async/cache foundation so the server can handle concurrent load and scale to 100 tickers
+- [x] **Phase 2: Backend Performance** — Replace the broken async/cache foundation so the server can handle concurrent load and scale to 100 tickers
 - [ ] **Phase 3: Data Pipeline Expansion** — Scale from 15 to 102 S&P 100 tickers with batched fetching, tiered news, and deduplication
 - [ ] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives
 - [ ] **Phase 5: UI Overhaul & Polish** — Build the flagship visual features (heatmap, dual-axis chart, skeleton loaders, auto-refresh) that make the portfolio story legible at a glance
@@ -99,7 +99,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Security & Cleanup | 3/3 | ✅ Complete | 2026-03-27 |
-| 2. Backend Performance | 0/1 | Not started | - |
+| 2. Backend Performance | 1/1 | ✅ Complete | 2026-03-28 |
 | 3. Data Pipeline Expansion | 0/? | Not started | - |
 | 4. Sentiment Intelligence Upgrade | 0/? | Not started | - |
 | 5. UI Overhaul & Polish | 0/? | Not started | - |
@@ -120,11 +120,11 @@ Plans:
 | CLEAN-02 | Phase 1 | ✅ Complete |
 | CLEAN-03 | Phase 1 | ✅ Complete |
 | CLEAN-04 | Phase 1 | ✅ Complete |
-| PERF-01 | Phase 2 | Pending |
-| PERF-02 | Phase 2 | Pending |
-| PERF-03 | Phase 2 | Pending |
-| PERF-04 | Phase 2 | Pending |
-| PERF-05 | Phase 2 | Pending |
+| PERF-01 | Phase 2 | ✅ Complete |
+| PERF-02 | Phase 2 | ✅ Complete |
+| PERF-03 | Phase 2 | ✅ Complete |
+| PERF-04 | Phase 2 | ✅ Complete |
+| PERF-05 | Phase 2 | ✅ Complete |
 | DATA-01 | Phase 3 | Pending |
 | DATA-02 | Phase 3 | Pending |
 | DATA-03 | Phase 3 | Pending |

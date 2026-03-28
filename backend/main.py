@@ -9,14 +9,69 @@ import json
 import re
 import os
 import socket
+import asyncio
+import uuid
+from asyncio import Queue
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 import torch
 from config import get_settings, Settings
+from contextlib import asynccontextmanager
+from cachetools import TTLCache
 
 # Set a global timeout for network requests
 socket.setdefaulttimeout(10)
 
-app = FastAPI()
+# Model placeholders (set in lifespan)
+finbert_pipe = None
+qwen_tokenizer = None
+qwen_model = None
+
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global finbert_pipe, qwen_tokenizer, qwen_model
+    # Load FinBERT
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    finbert_pipe = pipeline("sentiment-analysis", model="ProsusAI/finbert", device=0 if device == "cuda" else -1)
+    app.state.finbert_pipe = finbert_pipe
+    # Warm-up FinBERT
+    finbert_pipe("Warm-up sentence.")
+
+    # Load Qwen2.5-1.5B-Instruct
+    QWEN_MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
+    qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL_ID)
+    qwen_model = AutoModelForCausalLM.from_pretrained(
+        QWEN_MODEL_ID,
+        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        device_map="auto",
+    )
+    app.state.qwen_tokenizer = qwen_tokenizer
+    app.state.qwen_model = qwen_model
+    # Warm-up Qwen (single generate call with dummy input)
+    messages = [
+        {"role": "system", "content": "You are a financial analyst."},
+        {"role": "user", "content": "Analyze: Stock market is stable."}
+    ]
+    text_input = qwen_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = qwen_tokenizer(text_input, return_tensors="pt").to(qwen_model.device)
+    with torch.no_grad():
+        _ = qwen_model.generate(
+            **inputs,
+            max_new_tokens=20,
+            temperature=0.1,
+            do_sample=False,
+            pad_token_id=qwen_tokenizer.eos_token_id
+        )
+    print("Models loaded and warmed up.", flush=True)
+    # Start background worker for Qwen jobs
+    asyncio.create_task(qwen_worker())
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+# Async job queue for Qwen inference (non-blocking /analyze-custom)
+qwen_job_queue = Queue()
+qwen_job_results: Dict[str, dict] = {}
 
 # CORS — restricted to explicit origin list; wildcard + credentials is a browser security violation
 _settings = get_settings()
@@ -47,32 +102,6 @@ def require_api_key(
 
 # Constants
 selected_symbols = ['AAPL', 'AMZN', 'AMD', 'BA', 'BX', 'COST', 'CRM', 'DIS', 'GOOG', 'GS', 'IBM', 'INTC', 'MS', 'NKE', 'NVDA']
-
-# --- Ensemble Sentiment Initialization ---
-print("Initializing Sentiment Ensemble...", flush=True)
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device}", flush=True)
-
-# 1. FinBERT — Financial domain specialist (fast, precise, tiny model)
-finbert_pipe = pipeline(
-    "sentiment-analysis",
-    model="ProsusAI/finbert",
-    device=0 if device == "cuda" else -1
-)
-print("FinBERT loaded.", flush=True)
-
-# 2. Qwen2.5-1.5B-Instruct — Lightweight LLM for reasoning
-# Runs efficiently on CPU (32GB RAM) or CUDA if available
-QWEN_MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
-qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL_ID)
-qwen_model = AutoModelForCausalLM.from_pretrained(
-    QWEN_MODEL_ID,
-    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-    device_map="auto",
-)
-print("Qwen2.5-1.5B-Instruct loaded.", flush=True)
-print("Ensemble ready!", flush=True)
-
 
 def get_qwen_analysis(text: str) -> tuple:
     """Use Qwen2.5-1.5B to assess sentiment and provide concise reasoning."""
@@ -157,11 +186,37 @@ def label_from_score(score: float) -> str:
     return "Neutral"
 
 
-# In-memory cache
-cache: Dict[str, Any] = {
-    "stock_data": None,
-    "news": None
-}
+# Background worker for Qwen job queue
+async def qwen_worker():
+    while True:
+        job = await qwen_job_queue.get()
+        job_id = job["job_id"]
+        text = job["text"]
+        try:
+            # Run FinBERT scoring (synchronous, fast)
+            fb_val = finbert_score(text)
+            # Run Qwen analysis in a thread to avoid blocking event loop
+            qwen_val, reason = await asyncio.to_thread(get_qwen_analysis, text)
+            # Blend scores: 60% FinBERT + 40% Qwen
+            blended_score = 0.6 * fb_val + 0.4 * qwen_val
+            qwen_job_results[job_id] = {
+                "status": "complete",
+                "score": round(blended_score, 4),
+                "label": label_from_score(blended_score),
+                "finbert_score": round(fb_val, 4),
+                "llm_score": round(qwen_val, 4),
+                "reasoning": reason,
+                "model": "FinBERT + Qwen2.5-1.5B-Instruct"
+            }
+        except Exception as e:
+            qwen_job_results[job_id] = {"status": "error", "error": str(e)}
+        finally:
+            qwen_job_queue.task_done()
+
+
+# TTL cache (in-memory)
+stock_cache = TTLCache(maxsize=1, ttl=900)   # 15 minutes
+news_cache = TTLCache(maxsize=1, ttl=300)    # 5 minutes
 
 
 def clean_time(news):
@@ -174,19 +229,17 @@ def clean_time(news):
 
 
 @app.get("/stock-price")
-def get_stock_price():
-    if cache["stock_data"]:
-        return cache["stock_data"]
+async def get_stock_price():
+    if "stock_data" in stock_cache:
+        return stock_cache["stock_data"]
 
-    all_data = {}
-    for ticker in selected_symbols:
+    # Helper function to fetch data for a single ticker (runs in thread)
+    def fetch_ticker_data(ticker: str) -> dict:
         try:
             stock = yf.Ticker(ticker)
             hist_1y = stock.history(period='1y', interval='1d').reset_index()
-
             if hist_1y.empty:
-                continue
-
+                return None
             latest_data = hist_1y.tail(2)
             if len(latest_data) >= 2:
                 current_close = latest_data['Close'].iloc[-1]
@@ -194,12 +247,7 @@ def get_stock_price():
             else:
                 current_close = hist_1y['Close'].iloc[-1]
                 previous_close = current_close
-
-            percent_change = (
-                ((current_close - previous_close) / previous_close) * 100
-                if previous_close != 0 else 0
-            )
-
+            percent_change = (((current_close - previous_close) / previous_close) * 100) if previous_close != 0 else 0
             hist_1y['Month'] = hist_1y['Date'].dt.to_period('M')
             monthly_data = hist_1y.groupby('Month').agg({
                 'Open': 'first',
@@ -208,8 +256,7 @@ def get_stock_price():
                 'Low': 'min',
             }).reset_index()
             monthly_data['Month'] = monthly_data['Month'].dt.strftime('%Y-%m')
-
-            all_data[ticker] = {
+            return {
                 "current_close": float(current_close),
                 "previous_close": float(previous_close),
                 "percent_change": float(percent_change),
@@ -217,15 +264,32 @@ def get_stock_price():
             }
         except Exception as e:
             print(f"Error fetching stock data for {ticker}: {e}", flush=True)
+            return None
 
-    cache["stock_data"] = all_data
+    # Concurrent fetch with semaphore limit (max 10 concurrent)
+    semaphore = asyncio.Semaphore(10)
+    async def bounded_fetch(ticker: str):
+        async with semaphore:
+            return await asyncio.to_thread(fetch_ticker_data, ticker)
+
+    tasks = [bounded_fetch(t) for t in selected_symbols]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    all_data = {}
+    for ticker, result in zip(selected_symbols, results):
+        if isinstance(result, Exception):
+            print(f"Error fetching {ticker}: {result}", flush=True)
+        elif result:  # not None and not empty
+            all_data[ticker] = result
+
+    stock_cache["stock_data"] = all_data
     return all_data
 
 
 @app.get("/news")
 def get_news(ticker: str = None):
-    if not ticker and cache["news"]:
-        return cache["news"]
+    if not ticker and "news" in news_cache:
+        return news_cache["news"]
 
     all_news = []
     headers = {
@@ -265,37 +329,33 @@ def get_news(ticker: str = None):
     latest_articles = news_sorted[:20]
 
     if not ticker:
-        cache["news"] = latest_articles
+        news_cache["news"] = latest_articles
 
     return latest_articles
 
 
 @app.get("/analyze-custom")
-def analyze_custom(
+async def analyze_custom(
     text: str = Query(..., min_length=1, max_length=2000, description="Financial text to analyze (max 2000 chars)"),
     api_key: str = Security(require_api_key),
 ):
-    """Deep-dive analysis blending FinBERT precision with Qwen2.5 reasoning."""
-    try:
-        # FinBERT for precise financial sentiment scoring
-        fb_val = finbert_score(text)
+    """Deep-dive analysis blending FinBERT precision with Qwen2.5 reasoning (non-blocking)."""
+    # Generate a unique job ID
+    job_id = str(uuid.uuid4())
+    # Initialize pending status
+    qwen_job_results[job_id] = {"status": "pending"}
+    # Enqueue the job for background processing
+    await qwen_job_queue.put({"job_id": job_id, "text": text})
+    # Return job ID immediately
+    return {"job_id": job_id, "status": "pending"}
 
-        # Qwen2.5 for reasoning and narrative understanding
-        qwen_val, reasoning = get_qwen_analysis(text)
 
-        # Blend: 60% FinBERT (domain expert) + 40% Qwen (contextual reasoning)
-        blended_score = 0.6 * fb_val + 0.4 * qwen_val
-
-        return {
-            "score": round(blended_score, 4),
-            "label": label_from_score(blended_score),
-            "finbert_score": round(fb_val, 4),
-            "llm_score": round(qwen_val, 4),
-            "reasoning": reasoning,
-            "model": "FinBERT + Qwen2.5-1.5B-Instruct Ensemble"
-        }
-    except Exception as e:
-        return {"error": str(e)}
+@app.get("/analyze-custom/{job_id}")
+async def get_analyze_custom_status(job_id: str):
+    result = qwen_job_results.get(job_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return result
 
 
 if __name__ == "__main__":
