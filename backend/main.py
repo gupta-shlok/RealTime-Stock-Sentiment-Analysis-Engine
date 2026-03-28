@@ -380,28 +380,124 @@ def label_from_score(score: float) -> str:
     return "Neutral"
 
 
+# ─── Narrative helpers (SENT-05) ─────────────────────────────────────────────
+
+def build_narrative_prompt(ticker: str, headlines: list) -> str:
+    """
+    Build the Qwen prompt for narrative generation (SENT-05).
+    headlines: [{"title": str, "score": float}, ...]  top 8 most recent
+    """
+    headline_block = "\n".join(
+        f"{i+1}. [{'+'if h['score'] > 0 else ''}{h['score']:.2f}] {h['title']}"
+        for i, h in enumerate(headlines[:8])
+    )
+    return (
+        f"You are a concise financial analyst. Below are the 8 most recent news headlines "
+        f"for {ticker} with their FinBERT sentiment scores (positive=+, negative=-).\n\n"
+        f"{headline_block}\n\n"
+        f"Write a 2-3 sentence summary explaining what is currently driving {ticker}'s sentiment. "
+        f"Reference specific headlines by number and cite their sentiment signals (positive/negative score). "
+        f"Do not use generic phrases like 'the stock is moving' or 'investors are watching'. Be specific."
+    )
+
+
+def _get_ticker_headlines(ticker: str) -> list:
+    """
+    Retrieve top 8 recent headlines for a ticker from the news cache.
+    Returns list of {"title": str, "score": float} sorted by publishTime descending.
+    Scores are computed via finbert_score() for each headline title.
+    """
+    cached_news = news_cache.get("news", [])
+    ticker_articles = [a for a in cached_news if a.get("ticker") == ticker and a.get("title")]
+    # Sort by publishTime descending (ISO-like string "YYYY-MM-DD HH:MM:SS" sorts correctly)
+    ticker_articles.sort(key=lambda a: a.get("publishTime", ""), reverse=True)
+    result = []
+    for article in ticker_articles[:8]:
+        score, _ = finbert_score(article["title"])
+        result.append({"title": article["title"], "score": round(score, 4)})
+    return result
+
+
+def get_qwen_narrative(ticker: str) -> str:
+    """
+    Synchronous: generate Qwen narrative for ticker.
+    Called from qwen_worker() via asyncio.to_thread().
+    Returns the narrative text string.
+    """
+    headlines = _get_ticker_headlines(ticker)
+    if not headlines:
+        return f"Insufficient news data available for {ticker} to generate a narrative."
+
+    prompt = build_narrative_prompt(ticker, headlines)
+    messages = [
+        {"role": "system", "content": "You are a concise financial analyst. Answer in 2-3 sentences only."},
+        {"role": "user", "content": prompt},
+    ]
+    text_input = qwen_tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    inputs = qwen_tokenizer(text_input, return_tensors="pt").to(qwen_model.device)
+    with torch.no_grad():
+        outputs = qwen_model.generate(
+            **inputs,
+            max_new_tokens=250,
+            temperature=0.3,
+            do_sample=True,
+            pad_token_id=qwen_tokenizer.eos_token_id,
+        )
+    narrative = qwen_tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+    ).strip()
+    return narrative
+
+
 # Background worker for Qwen job queue
 async def qwen_worker():
     while True:
         job = await qwen_job_queue.get()
         job_id = job["job_id"]
-        text = job["text"]
+        job_type = job.get("type", "analyze")  # default is original analyze-custom behavior
+
         try:
-            # Run FinBERT scoring (synchronous, fast)
-            fb_val, _ = finbert_score(text)  # unpack (score, confidence) tuple
-            # Run Qwen analysis in a thread to avoid blocking event loop
-            qwen_val, reason = await asyncio.to_thread(get_qwen_analysis, text)
-            # Blend scores: 60% FinBERT + 40% Qwen
-            blended_score = 0.6 * fb_val + 0.4 * qwen_val
-            qwen_job_results[job_id] = {
-                "status": "complete",
-                "score": round(blended_score, 4),
-                "label": label_from_score(blended_score),
-                "finbert_score": round(fb_val, 4),
-                "llm_score": round(qwen_val, 4),
-                "reasoning": reason,
-                "model": "FinBERT + Qwen2.5-1.5B-Instruct"
-            }
+            if job_type == "narrative":
+                # SENT-05: Generate "why is this stock moving" narrative
+                ticker = job["ticker"]
+                narrative_text = await asyncio.to_thread(get_qwen_narrative, ticker)
+
+                # Write to narratives.json (D-11, D-13)
+                from datetime import timezone
+                narratives = _load_narratives_file()
+                narratives[ticker] = {
+                    "narrative": narrative_text,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "headlines_used": min(8, len(_get_ticker_headlines(ticker))),
+                }
+                _write_json_atomic(NARRATIVES_FILE, narratives)
+
+                qwen_job_results[job_id] = {
+                    "status": "complete",
+                    "ticker": ticker,
+                    "narrative": narrative_text,
+                }
+
+            else:
+                # Original analyze-custom behavior (unchanged from Phase 2)
+                text = job["text"]
+                fb_val, _ = finbert_score(text)  # unpack (score, confidence) tuple
+                # Run Qwen analysis in a thread to avoid blocking event loop
+                qwen_val, reason = await asyncio.to_thread(get_qwen_analysis, text)
+                # Blend scores: 60% FinBERT + 40% Qwen
+                blended_score = 0.6 * fb_val + 0.4 * qwen_val
+                qwen_job_results[job_id] = {
+                    "status": "complete",
+                    "score": round(blended_score, 4),
+                    "label": label_from_score(blended_score),
+                    "finbert_score": round(fb_val, 4),
+                    "llm_score": round(qwen_val, 4),
+                    "reasoning": reason,
+                    "model": "FinBERT + Qwen2.5-1.5B-Instruct"
+                }
+
         except Exception as e:
             qwen_job_results[job_id] = {"status": "error", "error": str(e)}
         finally:
@@ -625,6 +721,116 @@ async def get_analyze_custom_status(job_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="Job not found")
     return result
+
+
+# ─── Sentiment trends endpoint (SENT-03) ─────────────────────────────────────
+
+WINDOW_TO_SPAN = {"7d": 5, "30d": 20}
+
+
+@app.get("/sentiment-trends")
+async def get_sentiment_trends(
+    ticker: str,
+    window: str = "7d",
+    _key: str = Depends(require_api_key),
+):
+    """
+    Returns EMA-smoothed sentiment time series for a ticker.
+    window: '7d' (span=5) or '30d' (span=20).
+    Data sourced from sentiment_scores.json written by sentiment_scoring_task.
+    """
+    span = WINDOW_TO_SPAN.get(window)
+    if span is None:
+        raise HTTPException(
+            status_code=400,
+            detail="window must be '7d' or '30d'",
+        )
+
+    scores = _load_scores_file().get(ticker, {})
+    if not scores:
+        return {"ticker": ticker, "window": window, "data": []}
+
+    series = pd.Series(scores).sort_index()  # ISO date strings sort lexicographically = chronologically
+    ema = series.ewm(span=span).mean()
+    return {
+        "ticker": ticker,
+        "window": window,
+        "data": [{"date": d, "score": round(float(v), 4)} for d, v in ema.items()],
+    }
+
+
+# ─── Sector sentiment endpoint (SENT-04) ─────────────────────────────────────
+
+@app.get("/sector-sentiment")
+async def get_sector_sentiment(_key: str = Depends(require_api_key)):
+    """
+    Returns equal-weight sector averages from the most recent daily score per constituent.
+    Excludes sectors with fewer than 3 constituent stocks in the data (stock_count >= 3 rule).
+    Real Estate (2 tickers) is always excluded.
+    Energy (3) and Utilities (3) are included when data is available.
+    """
+    all_scores = _load_scores_file()
+    result = {}
+
+    for sector, tickers_in_sector in SECTOR_TICKERS.items():
+        sector_scores = []
+        for t in tickers_in_sector:
+            ticker_dates = all_scores.get(t, {})
+            if ticker_dates:
+                latest_date = max(ticker_dates.keys())
+                sector_scores.append(ticker_dates[latest_date])
+
+        stock_count = len(sector_scores)
+        if stock_count >= 3:
+            result[sector] = {
+                "score": round(sum(sector_scores) / stock_count, 4),
+                "stock_count": stock_count,
+            }
+
+    return result
+
+
+# ─── Stock narrative endpoint (SENT-05) ──────────────────────────────────────
+
+@app.get("/stock-narrative/{ticker}")
+async def get_stock_narrative(
+    ticker: str,
+    _key: str = Depends(require_api_key),
+):
+    """
+    Returns a Qwen-generated narrative explaining the ticker's current sentiment.
+    Cache freshness: 1 hour (D-12). Format per D-13:
+      {"status": "complete", "ticker": "AAPL", "narrative": "...", "generated_at": "...", "headlines_used": 8}
+    If stale or missing:
+      {"status": "pending", "job_id": "<uuid>"}  — poll qwen_job_results[job_id]
+    """
+    from datetime import timezone
+
+    narratives = _load_narratives_file()
+    entry = narratives.get(ticker)
+
+    if entry:
+        try:
+            generated_at = datetime.fromisoformat(entry["generated_at"])
+            # Ensure timezone-aware comparison
+            if generated_at.tzinfo is None:
+                from datetime import timezone as tz
+                generated_at = generated_at.replace(tzinfo=tz.utc)
+            age_seconds = (datetime.now(timezone.utc) - generated_at).total_seconds()
+            if age_seconds < 3600:  # less than 1 hour old — serve from cache
+                return {"status": "complete", "ticker": ticker, **entry}
+        except (ValueError, KeyError):
+            pass  # corrupt entry — fall through to enqueue
+
+    # Stale or missing — enqueue Qwen narrative job (same pattern as /analyze-custom)
+    job_id = str(uuid.uuid4())
+    qwen_job_results[job_id] = {"status": "pending"}
+    await qwen_job_queue.put({
+        "job_id": job_id,
+        "type": "narrative",
+        "ticker": ticker,
+    })
+    return {"status": "pending", "job_id": job_id}
 
 
 if __name__ == "__main__":
