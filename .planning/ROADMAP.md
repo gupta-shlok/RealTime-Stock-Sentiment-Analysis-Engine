@@ -83,7 +83,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Test infrastructure: pytest setup, conftest with model mocks, stub test files for SENT-01 through SENT-05 (Wave 0)
+- [x] 04-01-PLAN.md — Test infrastructure: pytest setup, conftest with model mocks, stub test files for SENT-01 through SENT-05 (Wave 0)
 - [ ] 04-02-PLAN.md — FinBERT upgrade to full-probability scoring, config FINBERT_MIN_CONFIDENCE, confidence-weighted aggregation, background scoring task + sentiment_scores.json persistence (SENT-01, SENT-02)
 - [ ] 04-03-PLAN.md — Three new endpoints: /sentiment-trends (EMA, SENT-03), /sector-sentiment (exclusion rule, SENT-04), /stock-narrative/{ticker} (Qwen narrative cache, SENT-05)
 
@@ -109,7 +109,7 @@ Plans:
 | 1. Security & Cleanup | 3/3 | ✅ Complete | 2026-03-27 |
 | 2. Backend Performance | 1/1 | ✅ Complete | 2026-03-28 |
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
-| 4. Sentiment Intelligence Upgrade | 0/3 | Not started | - |
+| 4. Sentiment Intelligence Upgrade | 1/3 | In Progress|  |
 | 5. UI Overhaul & Polish | 0/? | Not started | - |
 
 ---
