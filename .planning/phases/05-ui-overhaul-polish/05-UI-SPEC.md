@@ -58,9 +58,11 @@ Source: CONTEXT.md D-03, D-12, D-21. Defaults applied where not specified.
 | Role | Size | Weight | Line Height | Notes |
 |------|------|--------|-------------|-------|
 | Body | 16px | 400 | 1.5 | News feed text, narrative body |
-| Label | 12px | 600 | 1.2 | Section labels — uppercase, letter-spacing 0.08em |
-| Heading | 20px | 600 | 1.2 | Card headings, chart titles, section headings |
+| Label | 12px | 700 | 1.2 | Section labels — uppercase, letter-spacing 0.08em |
+| Heading | 20px | 700 | 1.2 | Card headings, chart titles, section headings |
 | Display | 28px | 700 | 1.1 | Company price (`current-price`), company name H1 |
+
+Two weights only: 400 (body readability) and 700 (display/label/heading hierarchy). The size difference between 12px Label and 20px Heading provides sufficient visual differentiation without requiring a third weight.
 
 Numeric rendering: all price and percent-change values use `font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace`.
 
@@ -144,7 +146,7 @@ All components are plain React + MUI v5. No shadcn registry applies.
 - Cell sizing: proportional to `market_cap` from `tickers.py` `TICKER_DATA`
 - Cell color: linear interpolation across 5-stop diverging palette based on current sentiment score
 - Sector grouping: GICS sector nodes wrap constituent stocks; sectors with `stock_count < 3` merged under "OTHER" node
-- Sector label: visible overlay inside sector region; font-size 12px, weight 600, uppercase, letter-spacing 0.08em
+- Sector label: visible overlay inside sector region; font-size 12px, weight 700, uppercase, letter-spacing 0.08em
 - "OTHER" label color: `#64748b` (muted)
 - Animation: heatmap data reference updated in-place on polling cycle — Recharts re-renders cells without re-animating from zero
 - Hover tooltip: ticker symbol, company name, current price, sentiment score (formatted to 2 decimal places), percent change pill badge
@@ -196,10 +198,11 @@ All components are plain React + MUI v5. No shadcn registry applies.
 
 ### Settings Modal (D-12)
 
-- Trigger: gear icon (`<SettingsIcon>`) in TopBar, right side
+- Trigger: gear icon (`<SettingsIcon>`) in TopBar, right side; `aria-label="Open settings"` declared on the `<IconButton>` wrapper
 - Component: MUI `<Dialog>` — `maxWidth="xs"`, `fullWidth`
-- Contents: `<Select>` for refresh interval (5 min / 10 min / 30 min), "Save" button, "Cancel" button
-- Save: updates React state and writes to `localStorage`
+- Contents: `<Select>` for refresh interval (5 min / 10 min / 30 min), "Save Settings" button, "Keep Current Settings" button
+- Save Settings: updates React state and writes to `localStorage`
+- Keep Current Settings: closes dialog without applying changes
 - Design: extensible — additional settings rows can be added without layout changes
 
 ### Percent Change Pill Badge (UI-10, D-23)
@@ -296,6 +299,8 @@ Source: REQUIREMENTS.md UI-08, CONTEXT.md (Claude's Discretion — breakpoints).
 | "OTHER" sector label | "OTHER" (uppercase, same as GICS sector labels) |
 | Settings modal title | "Settings" |
 | Refresh interval label | "Refresh interval" |
+| Settings modal confirm button | "Save Settings" |
+| Settings modal dismiss button | "Keep Current Settings" |
 | Destructive actions | None in this phase |
 
 Source: CONTEXT.md D-13, D-14, D-18, D-22. Defaults applied for empty states (Claude's Discretion).
@@ -369,3 +374,4 @@ No third-party component registries are used. All components are either MUI v5 p
 
 *Phase: 05-ui-overhaul-polish*
 *UI-SPEC created: 2026-03-28*
+*UI-SPEC revised: 2026-03-28 — checker fix pass (typography weights collapsed to 2, button labels de-genericized, aria-label declared on settings icon)*
