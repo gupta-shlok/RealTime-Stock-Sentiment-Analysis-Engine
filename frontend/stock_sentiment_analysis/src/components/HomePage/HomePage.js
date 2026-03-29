@@ -1,18 +1,16 @@
-// components/HomePage.js
 import React from 'react';
-import TopBar from "../TopBar/TopBar"; 
-import StockChart from "../StockChart/StockChart";
-import Footer from "../Footer/Footer";
-import NewsContent from "../NewsContent/NewsContent";
+import SentimentHeatmap from '../SentimentHeatmap/SentimentHeatmap';
+import SectorSentimentRow from '../SectorSentimentRow/SectorSentimentRow';
+import NewsContent from '../NewsContent/NewsContent';
+import './HomePage.css';
 
 const HomePage = () => {
     return (
-        <div>
-            <StockChart />
+        <div className="home-page">
+            <SentimentHeatmap />
+            <SectorSentimentRow />
             <NewsContent />
-            <Footer />
         </div>
-        
     );
 };
 

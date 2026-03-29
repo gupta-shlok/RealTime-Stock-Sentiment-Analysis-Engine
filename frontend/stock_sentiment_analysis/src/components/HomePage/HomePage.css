@@ -1,0 +1,12 @@
+.home-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+    /* 48px bottom clears the fixed ticker strip */
+}
+
+@media (max-width: 768px) {
+    .home-page {
+        padding: 16px 12px 48px;
+    }
+}
