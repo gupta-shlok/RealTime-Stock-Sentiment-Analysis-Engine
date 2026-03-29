@@ -29,3 +29,33 @@ export const getNewsData = (ticker = "") => {
             throw new Error('Failed to fetch news data');
         });
 };
+
+export const getSectorSentiment = () => {
+    const url = `${API_BASE}/sector-sentiment`;
+    return axios.get(url)
+        .then(response => response.data)
+        .catch(error => {
+            console.error('getSectorSentiment error:', error);
+            throw new Error('Failed to fetch sector sentiment data');
+        });
+};
+
+export const getSentimentTrends = (ticker, window = '7d') => {
+    const url = `${API_BASE}/sentiment-trends?ticker=${encodeURIComponent(ticker)}&window=${window}`;
+    return axios.get(url)
+        .then(response => response.data)
+        .catch(error => {
+            console.error('getSentimentTrends error:', error);
+            throw new Error(`Failed to fetch sentiment trends for ${ticker}`);
+        });
+};
+
+export const getStockNarrative = (ticker) => {
+    const url = `${API_BASE}/stock-narrative/${encodeURIComponent(ticker)}`;
+    return axios.get(url)
+        .then(response => response.data)
+        .catch(error => {
+            console.error('getStockNarrative error:', error);
+            throw new Error(`Failed to fetch narrative for ${ticker}`);
+        });
+};
