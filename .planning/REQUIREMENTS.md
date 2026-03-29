@@ -43,7 +43,7 @@
 
 - [ ] **UI-01**: Sentiment heatmap using Recharts `<Treemap>` — all 100 stocks as cells, sized by market cap, colored by sentiment score (5-stop diverging palette: `#16a34a` → `#4ade80` → `#475569` → `#f87171` → `#dc2626`)
 - [ ] **UI-02**: Stocks grouped by GICS sector on the heatmap with sector label overlay (only when `stock_count >= 3`)
-- [ ] **UI-03**: Price + sentiment dual-axis chart using Recharts `<ComposedChart>` — `<Area>` for price (left Y), `<Bar>` with per-cell `<Cell>` coloring for sentiment (right Y, domain `-1` to `1`)
+- [x] **UI-03**: Price + sentiment dual-axis chart using Recharts `<ComposedChart>` — `<Area>` for price (left Y), `<Bar>` with per-cell `<Cell>` coloring for sentiment (right Y, domain `-1` to `1`)
 - [x] **UI-04**: Auto-refresh with configurable polling interval (default 10 min); `useInterval` hook pattern; chart stays rendered during refresh (no unmount/remount)
 - [x] **UI-05**: Last-updated timestamp visible in UI, swaps to "Updating…" during refresh cycle
 
@@ -51,7 +51,7 @@
 
 - [ ] **UI-06**: Skeleton loaders for all data-dependent components (metric cards, charts, heatmap, news feed) — MUI `<Skeleton animation="wave">` with dark-theme `bgcolor` override
 - [ ] **UI-07**: Informative error states (not blank screens) for all fetch failure scenarios
-- [ ] **UI-08**: Responsive layout — usable on tablet and desktop; stock detail pages scroll gracefully on narrow viewports
+- [x] **UI-08**: Responsive layout — usable on tablet and desktop; stock detail pages scroll gracefully on narrow viewports
 - [ ] **UI-09**: Typography upgrade — section labels in all-caps with letter-spacing; price/change numbers use `font-variant-numeric: tabular-nums`
 - [ ] **UI-10**: Percent change displayed as color-tinted pill badge (not just colored text)
 
