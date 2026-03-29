@@ -1,28 +1,31 @@
-.stock-chart-container {
+.ticker-strip {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40px;
     overflow: hidden;
-    background-color: #cccccc;
-}
-
-.stock-chart-container-moving{
+    background-color: #0f172a;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1000;
     display: flex;
     align-items: center;
-    width: 220%;
-    box-sizing: border-box;
-    padding: 1em;
-    gap: 10px;
-    /* border-bottom: 2px solid #ccc; */
-    animation: scrollRightToLeft 20s linear infinite;
 }
 
-.stock-chart-container::-webkit-scrollbar {
-    display: none;
+.ticker-strip-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    white-space: nowrap;
+    animation: tickerScroll 80s linear infinite;
+    will-change: transform;
 }
 
-@keyframes scrollRightToLeft {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(-100%);
-    }
+.ticker-strip:hover .ticker-strip-track {
+    animation-play-state: paused;
+}
+
+@keyframes tickerScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
 }

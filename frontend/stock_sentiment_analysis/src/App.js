@@ -4,6 +4,7 @@ import {StockDataProvider} from "./context/StockDataContext";
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import CustomSentiment from './components/CustomSentiment/CustomSentiment';
 import CompanyPage from './components/CompanyPage/CompanyPage';
+import StockChart from './components/StockChart/StockChart';
 import './App.css';
 import TopBar from './components/TopBar/TopBar';
 
@@ -20,6 +21,7 @@ const App = () => {
                     <Route path="/custom-sentiment" element={<CustomSentiment />} />
                     <Route path="/stock/:ticker" element={<CompanyPage />} />
                 </Routes>
+                <StockChart />
             </Router>
         </StockDataProvider>
     );

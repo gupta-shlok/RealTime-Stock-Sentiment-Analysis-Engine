@@ -1,16 +1,23 @@
 // components/StockChart.js
 import React, { useContext } from 'react';
-import { StockDataContext } from "../../context/StockDataContext";
-import StockDetails from "../StockDetails/StockDetails";
+import { StockDataContext } from '../../context/StockDataContext';
+import StockDetails from '../StockDetails/StockDetails';
 import './StockChart.css';
+
 const StockChart = () => {
-    const stockData = useContext(StockDataContext);
+    const { stocks } = useContext(StockDataContext);
+
+    if (!stocks || stocks.length === 0) return null;
 
     return (
-        <div className="stock-chart-container">
-            <div className="stock-chart-container-moving">
-                {stockData.map((stock, index) => (
+        <div className="ticker-strip">
+            <div className="ticker-strip-track">
+                {stocks.map((stock, index) => (
                     <StockDetails key={index} stock={stock} />
+                ))}
+                {/* Duplicate for seamless loop */}
+                {stocks.map((stock, index) => (
+                    <StockDetails key={`dup-${index}`} stock={stock} />
                 ))}
             </div>
         </div>
