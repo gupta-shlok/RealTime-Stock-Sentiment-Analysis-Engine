@@ -1,18 +1,42 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StockDataContext } from '../../context/StockDataContext';
-import { getNewsData } from '../../apis/api';
+import { getNewsData, getSentimentTrends, getStockNarrative } from '../../apis/api';
 import NewsItem from '../NewsItem/NewsItem';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Skeleton, Button } from '@mui/material';
 import './CompanyPage.css';
 
 const CompanyPage = () => {
     const { ticker } = useParams();
-    const stockData = useContext(StockDataContext);
+    const { stocks } = useContext(StockDataContext);
+    const stock = stocks.find(s => s.name === ticker);
+
     const [companyNews, setCompanyNews] = useState([]);
     const [loadingNews, setLoadingNews] = useState(true);
 
-    const stock = stockData.find(s => s.name === ticker);
+    const [sentimentTrends, setSentimentTrends] = useState([]);
+    const [trendsLoading, setTrendsLoading] = useState(true);
+    const [trendsError, setTrendsError] = useState(null);
+
+    const [narrative, setNarrative] = useState(null);
+    const [narrativeLoading, setNarrativeLoading] = useState(true);
+    const [narrativeError, setNarrativeError] = useState(null);
+    const narrativePollRef = React.useRef(null);
+    const narrativePollCountRef = React.useRef(0);
+
+    // Prepare chart data from stock.history
+    const chartData = stock ? (stock.history || []) : [];
+
+    // Merge price history with sentiment trends by date
+    const chartDataWithSentiment = useMemo(() => {
+        const trendMap = {};
+        sentimentTrends.forEach(t => { trendMap[t.date] = t.score; });
+        return chartData.slice(-7).map(d => ({
+            ...d,
+            sentiment: trendMap[d.Date] ?? null,
+        }));
+    }, [chartData, sentimentTrends]);
 
     useEffect(() => {
         if (ticker) {
@@ -29,6 +53,58 @@ const CompanyPage = () => {
         }
     }, [ticker]);
 
+    useEffect(() => {
+        if (!ticker) return;
+        setTrendsLoading(true);
+        setTrendsError(null);
+        getSentimentTrends(ticker, '7d')
+            .then(data => {
+                setSentimentTrends(data.trends || []);
+                setTrendsLoading(false);
+            })
+            .catch(() => {
+                setTrendsError(`Could not load sentiment trends for ${ticker}.`);
+                setTrendsLoading(false);
+            });
+    }, [ticker]);
+
+    useEffect(() => {
+        if (!ticker) return;
+        setNarrativeLoading(true);
+        setNarrativeError(null);
+        narrativePollCountRef.current = 0;
+
+        const pollNarrative = () => {
+            getStockNarrative(ticker)
+                .then(data => {
+                    if (data.status === 'complete') {
+                        setNarrative(data);
+                        setNarrativeLoading(false);
+                        clearInterval(narrativePollRef.current);
+                    } else if (data.status === 'pending') {
+                        narrativePollCountRef.current += 1;
+                        if (narrativePollCountRef.current >= 30) {
+                            // Timeout after 5 minutes (30 × 10s)
+                            setNarrativeError(`Could not load narrative for ${ticker}.`);
+                            setNarrativeLoading(false);
+                            clearInterval(narrativePollRef.current);
+                        }
+                        // else keep polling
+                    }
+                })
+                .catch(() => {
+                    setNarrativeError(`Could not load narrative for ${ticker}.`);
+                    setNarrativeLoading(false);
+                    clearInterval(narrativePollRef.current);
+                });
+        };
+
+        pollNarrative(); // immediate first call
+        narrativePollRef.current = setInterval(pollNarrative, 10000);
+
+        return () => clearInterval(narrativePollRef.current);
+    }, [ticker]);
+
     if (!stock) {
         return (
             <div className="company-page-error">
@@ -38,9 +114,6 @@ const CompanyPage = () => {
         );
     }
 
-    // Prepare chart data from stock.history
-    const chartData = stock.history || [];
-
     return (
         <div className="company-page glass-panel">
             <div className="company-header">
@@ -49,7 +122,7 @@ const CompanyPage = () => {
                     <h1>{stock.name} <span className="ticker-label">Ticker</span></h1>
                     <div className="company-price-box">
                         <span className="current-price">${stock.current_close?.toFixed(2)}</span>
-                        <span className={`price-change ${stock.percent_change >= 0 ? 'up' : 'down'}`}>
+                        <span className={`pct-badge ${stock.percent_change >= 0 ? 'pct-badge--up' : 'pct-badge--down'}`}>
                             {stock.percent_change >= 0 ? '+' : ''}{stock.percent_change?.toFixed(2)}%
                         </span>
                     </div>
@@ -58,26 +131,56 @@ const CompanyPage = () => {
 
             <div className="company-content">
                 <div className="chart-section glass-card">
-                    <h3>Performance History (1 Year)</h3>
+                    <h3>Performance + Sentiment (7 Days)</h3>
                     <div className="chart-wrapper">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                                <XAxis dataKey="Month" stroke="#94a3b8" fontSize={12} />
-                                <YAxis hide domain={['auto', 'auto']} />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
-                                    itemStyle={{ color: '#3b82f6' }}
-                                />
-                                <Area type="monotone" dataKey="Close" stroke="#3b82f6" fillOpacity={1} fill="url(#colorClose)" strokeWidth={3} />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {trendsLoading ? (
+                            <Skeleton variant="rectangular" height={300} sx={{ borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)' }} />
+                        ) : trendsError ? (
+                            <div className="chart-error">
+                                <p>{trendsError}</p>
+                                <Button variant="outlined" size="small" onClick={() => {
+                                    setTrendsLoading(true);
+                                    setTrendsError(null);
+                                    getSentimentTrends(ticker, '7d')
+                                        .then(d => { setSentimentTrends(d.trends || []); setTrendsLoading(false); })
+                                        .catch(() => { setTrendsError(`Could not load sentiment trends for ${ticker}.`); setTrendsLoading(false); });
+                                }} sx={{ color: '#94a3b8', borderColor: '#475569', mt: 1 }}>
+                                    Retry
+                                </Button>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <ComposedChart data={chartDataWithSentiment}>
+                                    <defs>
+                                        <linearGradient id="colorPriceFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+                                    <XAxis dataKey="Date" stroke="#94a3b8" fontSize={11} tick={{ fill: '#94a3b8' }} />
+                                    <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" fontSize={11}
+                                        tick={{ fill: '#94a3b8' }} domain={['auto', 'auto']}
+                                        tickFormatter={v => `$${v.toFixed(0)}`} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={11}
+                                        tick={{ fill: '#94a3b8' }} domain={[-1, 1]}
+                                        tickFormatter={v => v.toFixed(1)} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                    />
+                                    <Area yAxisId="left" type="monotone" dataKey="Close"
+                                        stroke="#3b82f6" strokeWidth={2}
+                                        fill="url(#colorPriceFill)"
+                                        isAnimationActive={false}
+                                        dot={false} />
+                                    <Bar yAxisId="right" dataKey="sentiment" isAnimationActive={false}>
+                                        {chartDataWithSentiment.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={(entry.sentiment ?? 0) >= 0 ? '#4ade80' : '#f87171'} />
+                                        ))}
+                                    </Bar>
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 
@@ -94,6 +197,46 @@ const CompanyPage = () => {
                         <span>Year Low</span>
                         <strong>${Math.min(...chartData.map(d => d.Low)).toFixed(2)}</strong>
                     </div>
+                </div>
+
+                <div className="narrative-section glass-card">
+                    <h3 className="section-label">AI Market Narrative</h3>
+                    {narrativeLoading ? (
+                        <>
+                            <Skeleton variant="rectangular" height={96} sx={{ borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.08)', mb: 1 }} />
+                            <p className="narrative-pending-caption">Generating narrative...</p>
+                        </>
+                    ) : narrativeError ? (
+                        <div className="narrative-error">
+                            <p>{narrativeError}</p>
+                            <Button variant="outlined" size="small" onClick={() => {
+                                setNarrativeError(null);
+                                setNarrativeLoading(true);
+                                narrativePollCountRef.current = 0;
+                                const poll = () => {
+                                    getStockNarrative(ticker)
+                                        .then(data => {
+                                            if (data.status === 'complete') {
+                                                setNarrative(data); setNarrativeLoading(false);
+                                                clearInterval(narrativePollRef.current);
+                                            } else { narrativePollCountRef.current += 1; if (narrativePollCountRef.current >= 30) { setNarrativeError(`Could not load narrative for ${ticker}.`); setNarrativeLoading(false); clearInterval(narrativePollRef.current); } }
+                                        })
+                                        .catch(() => { setNarrativeError(`Could not load narrative for ${ticker}.`); setNarrativeLoading(false); clearInterval(narrativePollRef.current); });
+                                };
+                                poll();
+                                narrativePollRef.current = setInterval(poll, 10000);
+                            }} sx={{ color: '#94a3b8', borderColor: '#475569', mt: 1 }}>
+                                Retry
+                            </Button>
+                        </div>
+                    ) : narrative ? (
+                        <>
+                            <p className="narrative-text">{narrative.narrative}</p>
+                            <p className="narrative-staleness">
+                                Generated {Math.floor((Date.now() - new Date(narrative.generated_at)) / 60000)} min ago
+                            </p>
+                        </>
+                    ) : null}
                 </div>
 
                 <div className="company-news-section">
