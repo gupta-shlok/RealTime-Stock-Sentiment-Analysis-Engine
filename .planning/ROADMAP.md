@@ -13,7 +13,7 @@
 - [x] **Phase 2: Backend Performance** — Replace the broken async/cache foundation so the server can handle concurrent load and scale to 100 tickers
 - [x] **Phase 3: Data Pipeline Expansion** — Scale from 15 to 102 S&P 100 tickers with batched fetching, tiered news, and deduplication
 - [x] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives (completed 2026-03-28)
-- [ ] **Phase 5: UI Overhaul & Polish** — Build the flagship visual features (heatmap, dual-axis chart, skeleton loaders, auto-refresh) that make the portfolio story legible at a glance
+- [x] **Phase 5: UI Overhaul & Polish** — Build the flagship visual features (heatmap, dual-axis chart, skeleton loaders, auto-refresh) that make the portfolio story legible at a glance (completed 2026-03-29)
 
 ---
 
@@ -110,7 +110,7 @@ Plans:
 | 2. Backend Performance | 1/1 | ✅ Complete | 2026-03-28 |
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
 | 4. Sentiment Intelligence Upgrade | 3/3 | Complete   | 2026-03-28 |
-| 5. UI Overhaul & Polish | 3/4 | In Progress|  |
+| 5. UI Overhaul & Polish | 4/4 | Complete   | 2026-03-29 |
 
 ---
 

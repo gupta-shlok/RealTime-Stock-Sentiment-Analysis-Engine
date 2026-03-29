@@ -52,8 +52,8 @@
 - [x] **UI-06**: Skeleton loaders for all data-dependent components (metric cards, charts, heatmap, news feed) — MUI `<Skeleton animation="wave">` with dark-theme `bgcolor` override
 - [x] **UI-07**: Informative error states (not blank screens) for all fetch failure scenarios
 - [x] **UI-08**: Responsive layout — usable on tablet and desktop; stock detail pages scroll gracefully on narrow viewports
-- [ ] **UI-09**: Typography upgrade — section labels in all-caps with letter-spacing; price/change numbers use `font-variant-numeric: tabular-nums`
-- [ ] **UI-10**: Percent change displayed as color-tinted pill badge (not just colored text)
+- [x] **UI-09**: Typography upgrade — section labels in all-caps with letter-spacing; price/change numbers use `font-variant-numeric: tabular-nums`
+- [x] **UI-10**: Percent change displayed as color-tinted pill badge (not just colored text)
 
 ### Cleanup
 
