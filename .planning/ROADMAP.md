@@ -110,7 +110,7 @@ Plans:
 | 2. Backend Performance | 1/1 | ✅ Complete | 2026-03-28 |
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
 | 4. Sentiment Intelligence Upgrade | 3/3 | Complete   | 2026-03-28 |
-| 5. UI Overhaul & Polish | 0/? | Not started | - |
+| 5. UI Overhaul & Polish | 1/4 | In Progress|  |
 
 ---
 
