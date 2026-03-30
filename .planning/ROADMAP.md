@@ -3,7 +3,7 @@
 **Milestone:** v1.0
 **Granularity:** Standard
 **Coverage:** 34/34 v1 requirements mapped
-**Last updated:** 2026-03-28
+**Last updated:** 2026-03-30
 
 ---
 
@@ -14,6 +14,9 @@
 - [x] **Phase 3: Data Pipeline Expansion** — Scale from 15 to 102 S&P 100 tickers with batched fetching, tiered news, and deduplication
 - [x] **Phase 4: Sentiment Intelligence Upgrade** — Replace the pipeline shortcut with full-probability FinBERT scoring, EMA trends, sector aggregation, and async Qwen narratives (completed 2026-03-28)
 - [x] **Phase 5: UI Overhaul & Polish** — Build the flagship visual features (heatmap, dual-axis chart, skeleton loaders, auto-refresh) that make the portfolio story legible at a glance (completed 2026-03-29)
+- [ ] **Phase 6: Visual Design Overhaul** — Dark design system with CSS variables, glassmorphism removal, TopBar redesign, news layout, typography scale, and consistent component styling across all pages
+- [ ] **Phase 7: Microservices Architecture** — Split monolithic backend into api, sentiment, and narrative containers so frontend rebuilds never restart ML models and each service can be updated independently
+- [ ] **Phase 8: Automated Test Suite** — Replace manual UAT with React Testing Library frontend tests, pytest backend tests, and a GitHub Actions CI pipeline
 
 ---
 
@@ -90,6 +93,7 @@ Plans:
 ### Phase 5: UI Overhaul & Polish
 **Goal**: The dashboard communicates sentiment + price together at a glance through a heatmap of all 100 stocks, a dual-axis chart overlay, skeleton loaders, auto-refresh, and financial-grade visual conventions.
 **Depends on**: Phase 4
+
 **Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, UI-09, UI-10
 **Complexity**: L
 **Success Criteria** (what must be TRUE):
@@ -98,6 +102,28 @@ Plans:
   3. Auto-refresh runs on a 10-minute interval using a `useInterval` hook; polling pauses automatically when the browser tab is hidden; a 2px `LinearProgress` bar appears at the top of the page during a refresh cycle without dismounting any chart; a "Last updated HH:MM" timestamp is visible at all times and swaps to "Updating..." during the cycle
   4. Every data-dependent component (metric cards, charts, heatmap, news feed) shows a MUI `<Skeleton animation="wave">` placeholder that matches the content height while data is loading — there is no layout shift when data arrives; dark-theme backgrounds show the skeleton at a visible opacity
   5. All fetch failure scenarios display an informative error state with context (which endpoint failed, a retry action) rather than a blank screen or a spinner that runs forever; percent-change figures display as color-tinted pill badges (green background for positive, red for negative) using tabular-nums font rendering so columns stay aligned during live updates
+**Plans**: 4 plans
+
+Plans:
+- [x] 05-01-PLAN.md — useInterval hook, StockDataContext auto-refresh with visibility guard, loading/isRefreshing state, localStorage persistence
+- [x] 05-02-PLAN.md — SentimentHeatmap Treemap with market-cap sizing, sector grouping, in-place mutation anti-flicker, getSentimentColor 5-stop palette
+- [x] 05-03-PLAN.md — TopBar LinearProgress refresh bar, last-updated timestamp, settings dialog with interval selector
+- [x] 05-04-PLAN.md — Skeleton loaders, error states with retry, pct-badge pill component, StockChart ticker strip
+
+### Phase 6: Visual Design Overhaul
+**Goal**: The app looks like a professional financial dashboard — dark design system with CSS variables, glassmorphism removal, redesigned TopBar, polished news layout, consistent typography scale, and unified component styling across all pages.
+**Depends on**: Phase 5
+**Plans**: 4 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — CSS token system (theme.css), FOUC prevention in index.html, theme state in StockDataContext (VIS-01, VIS-02, VIS-03)
+- [ ] 06-02-PLAN.md — TopBar rebrand + theme toggle + SentimentHeatmap/SectorSentimentRow/StockChart CSS refactor + .surface-card utility (VIS-04, VIS-05, VIS-06, VIS-07, VIS-09, VIS-10)
+- [ ] 06-03-PLAN.md — CompanyPage CSS/JS refactor, remove glassmorphism, remove duplicate CSS, chartTheme.js for Recharts constants (VIS-06, VIS-07, VIS-09, VIS-10)
+- [ ] 06-04-PLAN.md — NewsData card grid rewrite (hero + 3-column secondary), relative time, image fallback (VIS-08)
+
+### Phase 7: Microservices Architecture
+**Goal**: The backend is split into three independent containers (api, sentiment, narrative) so that frontend rebuilds never restart ML models, each service has its own Dockerfile and restart policy, and the overall rebuild cycle drops from 2-15 minutes to under 30 seconds for any single service change.
+**Depends on**: Phase 6
 **Plans**: TBD
 
 ---
@@ -111,6 +137,9 @@ Plans:
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
 | 4. Sentiment Intelligence Upgrade | 3/3 | Complete   | 2026-03-28 |
 | 5. UI Overhaul & Polish | 4/4 | Complete   | 2026-03-29 |
+| 6. Visual Design Overhaul | 0/4 | In planning | — |
+| 7. Microservices Architecture | 0/TBD | Not planned | — |
+| 8. Automated Test Suite | 0/TBD | Not planned | — |
 
 ---
 
@@ -152,9 +181,19 @@ Plans:
 | UI-08 | Phase 5 | Pending |
 | UI-09 | Phase 5 | Pending |
 | UI-10 | Phase 5 | Pending |
+| VIS-01 | Phase 6 | Pending |
+| VIS-02 | Phase 6 | Pending |
+| VIS-03 | Phase 6 | Pending |
+| VIS-04 | Phase 6 | Pending |
+| VIS-05 | Phase 6 | Pending |
+| VIS-06 | Phase 6 | Pending |
+| VIS-07 | Phase 6 | Pending |
+| VIS-08 | Phase 6 | Pending |
+| VIS-09 | Phase 6 | Pending |
+| VIS-10 | Phase 6 | Pending |
 
-**Total v1 requirements:** 34
-**Mapped:** 34
+**Total v1 requirements:** 44
+**Mapped:** 44
 **Unmapped:** 0
 
 ---
@@ -180,7 +219,25 @@ Phase 4: Sentiment Intelligence Upgrade
         v
 Phase 5: UI Overhaul & Polish
     (heatmap, dual-axis chart, and auto-refresh consume endpoints from Phases 3 and 4)
+        |
+        v
+Phase 6: Visual Design Overhaul
+    (design system layer on top of the components built in Phase 5)
+        |
+        v
+Phase 7: Microservices Architecture
+    (split monolithic backend into api/sentiment/narrative containers)
 ```
+
+### Phase 8: Automated Test Suite
+**Goal**: Replace manual UAT with an automated test suite — React Testing Library unit tests for frontend components, pytest unit and integration tests for backend endpoints, and a GitHub Actions CI pipeline that runs all tests on every push.
+**Depends on**: Phase 7
+**Requirements**: TBD
+**Complexity**: M
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
 
 ---
 
