@@ -117,12 +117,12 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — CSS token system (theme.css), FOUC prevention inline script, StockDataContext theme state + localStorage (D-06, D-07–D-18, D-19–D-21)
-- [ ] 06-02-PLAN.md — TopBar rebrand + theme toggle + 4 CSS file refactors (Heatmap, SectorRow, StockChart) + .surface-card (D-01–D-05, D-22–D-24, D-28–D-30)
-- [ ] 06-03-PLAN.md — CompanyPage full refactor + chartTheme.js for Recharts JS constants (D-20, D-21, D-29)
+- [x] 06-02-PLAN.md — TopBar rebrand + theme toggle + 4 CSS file refactors (Heatmap, SectorRow, StockChart) + .surface-card (D-01–D-05, D-22–D-24, D-28–D-30)
+- [x] 06-03-PLAN.md — CompanyPage full refactor + chartTheme.js for Recharts JS constants (D-20, D-21, D-29)
 - [ ] 06-04-PLAN.md — NewsData card grid rewrite: hero + 3-secondary layout, mobile collapse, human visual checkpoint (D-25–D-27)
 
 Plans:
-- [ ] 06-01-PLAN.md — CSS token system (theme.css), FOUC prevention in index.html, theme state in StockDataContext (VIS-01, VIS-02, VIS-03)
+- [x] 06-01-PLAN.md — CSS token system (theme.css), FOUC prevention in index.html, theme state in StockDataContext (VIS-01, VIS-02, VIS-03)
 - [ ] 06-02-PLAN.md — TopBar rebrand + theme toggle + SentimentHeatmap/SectorSentimentRow/StockChart CSS refactor + .surface-card utility (VIS-04, VIS-05, VIS-06, VIS-07, VIS-09, VIS-10)
 - [ ] 06-03-PLAN.md — CompanyPage CSS/JS refactor, remove glassmorphism, remove duplicate CSS, chartTheme.js for Recharts constants (VIS-06, VIS-07, VIS-09, VIS-10)
 - [ ] 06-04-PLAN.md — NewsData card grid rewrite (hero + 3-column secondary), relative time, image fallback (VIS-08)
@@ -143,7 +143,7 @@ Plans:
 | 3. Data Pipeline Expansion | 2/2 | ✅ Complete | 2026-03-28 |
 | 4. Sentiment Intelligence Upgrade | 3/3 | Complete   | 2026-03-28 |
 | 5. UI Overhaul & Polish | 4/4 | Complete   | 2026-03-29 |
-| 6. Visual Design Overhaul | 1/4 | In Progress|  |
+| 6. Visual Design Overhaul | 3/4 | In Progress|  |
 | 7. Microservices Architecture | 0/TBD | Not planned | — |
 | 8. Automated Test Suite | 0/TBD | Not planned | — |
 
