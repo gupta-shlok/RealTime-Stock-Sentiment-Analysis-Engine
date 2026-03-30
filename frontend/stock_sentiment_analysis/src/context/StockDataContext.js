@@ -11,6 +11,8 @@ export const StockDataContext = createContext({
     refresh: () => {},
     refreshInterval: 600000,
     setRefreshInterval: () => {},
+    theme: 'dark',
+    setTheme: () => {},
 });
 
 export const StockDataProvider = ({ children }) => {
@@ -22,6 +24,9 @@ export const StockDataProvider = ({ children }) => {
     const [refreshInterval, setRefreshIntervalState] = useState(() => {
         const stored = localStorage.getItem('sentiment_refresh_interval');
         return stored ? parseInt(stored, 10) : 600000;
+    });
+    const [theme, setThemeState] = useState(() => {
+        return localStorage.getItem('sentiment_theme') || 'dark';
     });
     const isRefreshingRef = useRef(false);
 
@@ -39,7 +44,15 @@ export const StockDataProvider = ({ children }) => {
 
         try {
             const data = await getStockData();
-            const stockArray = Object.entries(data).map(([name, stockInfo]) => ({ name, ...stockInfo }));
+            // Flatten nested { sector: { ticker: stockInfo } } into [{ name, sector, market_cap, ...stockInfo }]
+            const stockArray = Object.entries(data).flatMap(([sector, tickers]) =>
+                Object.entries(tickers).map(([ticker, info]) => ({
+                    name: ticker,
+                    sector: sector,
+                    market_cap: info.market_cap,
+                    ...info
+                }))
+            );
             setStocks(stockArray);
             setLastUpdated(new Date());
             setError(null);
@@ -67,6 +80,17 @@ export const StockDataProvider = ({ children }) => {
         setRefreshIntervalState(ms);
     }, []);
 
+    const setTheme = useCallback((newTheme) => {
+        localStorage.setItem('sentiment_theme', newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+        setThemeState(newTheme);
+    }, []);
+
+    // Sync data-theme attribute on mount (guards against SSR-like scenarios)
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     return (
         <StockDataContext.Provider value={{
             stocks,
@@ -77,6 +101,8 @@ export const StockDataProvider = ({ children }) => {
             refresh,
             refreshInterval,
             setRefreshInterval,
+            theme,
+            setTheme,
         }}>
             {children}
         </StockDataContext.Provider>
