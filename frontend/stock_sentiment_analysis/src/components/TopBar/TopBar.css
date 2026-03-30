@@ -2,12 +2,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: rgb(0, 0, 0);
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
     width: 100%;
-}
-
-h1{
-    color: rgb(247,105,0);
 }
 
 .header, .title-and-search{
@@ -23,29 +20,30 @@ h1{
     white-space: nowrap;
 }
 
-.logo-container {
-    padding-right: 5px;
-}
-
-#logo {
-    height: 90px;
-    width: auto;
+.topbar-brand {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    padding: 0 16px;
 }
 
 .custom-sentiment-button {
-    background-color: #f60;
+    background-color: var(--accent-blue);
     padding: 10px 15px;
     border-radius: 20px;
-    color: white; 
+    color: white;
     text-decoration: none;
     transition: background-color 0.3s ease;
     margin-right: 10px;
   }
-  
+
   .custom-sentiment-button:hover {
-    background-color: #e55;
+    background-color: var(--accent-blue);
+    filter: brightness(0.85);
   }
-  
+
   .custom-sentiment-container {
     display: flex;
     flex-direction: column;
@@ -53,12 +51,12 @@ h1{
     align-items: center;
     height: 100vh;
   }
-  
+
   .custom-textarea {
     width: 50%;
     margin-bottom: 20px;
   }
-  
+
   .submit-button {
     padding: 10px 20px;
     border-radius: 5px;
@@ -72,7 +70,7 @@ h1{
 
 .last-updated-text {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }

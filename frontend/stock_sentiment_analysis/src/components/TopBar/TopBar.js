@@ -13,8 +13,12 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
+    Box,
+    Typography,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { StockDataContext } from '../../context/StockDataContext';
 import './TopBar.css';
 
@@ -28,7 +32,7 @@ const TopBar = () => {
     const location = useLocation();
     const isCustomSentimentPage = location.pathname === '/custom-sentiment';
 
-    const { isRefreshing, lastUpdated, refreshInterval, setRefreshInterval } = useContext(StockDataContext);
+    const { isRefreshing, lastUpdated, refreshInterval, setRefreshInterval, theme, setTheme } = useContext(StockDataContext);
 
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [pendingInterval, setPendingInterval] = useState(refreshInterval);
@@ -60,14 +64,12 @@ const TopBar = () => {
                         height: 2,
                         zIndex: 9999,
                         backgroundColor: 'rgba(59,130,246,0.2)',
-                        '& .MuiLinearProgress-bar': { backgroundColor: '#3b82f6' },
+                        '& .MuiLinearProgress-bar': { backgroundColor: 'var(--accent-blue)' },
                     }}
                 />
             )}
             <div className="header">
-                <a href="/">
-                    <img src="download.png" alt="Logo" id="logo" />
-                </a>
+                <span className="topbar-brand">StockSentimentSense</span>
                 <SearchBar />
                 <div className="topbar-right">
                     <span className="last-updated-text">
@@ -77,7 +79,7 @@ const TopBar = () => {
                         onClick={handleOpenSettings}
                         size="small"
                         aria-label="Refresh interval settings"
-                        sx={{ color: '#94a3b8', ml: 1 }}
+                        sx={{ color: 'var(--text-secondary)', ml: 1 }}
                     >
                         <SettingsIcon fontSize="small" />
                     </IconButton>
@@ -95,35 +97,57 @@ const TopBar = () => {
             <Dialog
                 open={settingsOpen}
                 onClose={() => setSettingsOpen(false)}
-                PaperProps={{ sx: { backgroundColor: '#1e293b', color: '#f1f5f9', minWidth: 320 } }}
+                PaperProps={{ sx: { backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)', minWidth: 320 } }}
             >
-                <DialogTitle sx={{ color: '#f1f5f9', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <DialogTitle sx={{ color: 'var(--text-primary)', borderBottom: '1px solid var(--border)' }}>
                     Settings
                 </DialogTitle>
-                <DialogContent sx={{ pt: 3 }}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel sx={{ color: '#94a3b8' }}>Refresh interval</InputLabel>
+                <DialogContent sx={{ pt: 4 }}>
+                    <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                        <InputLabel sx={{
+                            color: 'var(--text-secondary)',
+                            '&.Mui-focused': { color: 'var(--accent-blue)' },
+                            '&.MuiFormLabel-filled': { color: 'var(--text-secondary)' },
+                            backgroundColor: 'var(--bg-surface)',
+                            px: 0.5,
+                        }}>Refresh interval</InputLabel>
                         <Select
                             value={pendingInterval}
                             label="Refresh interval"
                             onChange={(e) => setPendingInterval(e.target.value)}
                             sx={{
-                                color: '#f1f5f9',
-                                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#475569' },
-                                '& .MuiSvgIcon-root': { color: '#94a3b8' },
+                                color: 'var(--text-primary)',
+                                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--text-disabled)' },
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--text-secondary)' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--accent-blue)' },
+                                '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
                             }}
+                            MenuProps={{ PaperProps: { sx: { backgroundColor: 'var(--bg-surface)' } } }}
                         >
                             {INTERVAL_OPTIONS.map(opt => (
-                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                <MenuItem key={opt.value} value={opt.value} sx={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)', '&:hover': { backgroundColor: 'var(--bg-elevated)' }, '&.Mui-selected': { backgroundColor: '#1d4ed8' }, '&.Mui-selected:hover': { backgroundColor: '#2563eb' } }}>{opt.label}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
+                    <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                            Theme
+                        </Typography>
+                        <IconButton
+                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                            size="small"
+                            sx={{ color: 'var(--text-secondary)' }}
+                            aria-label="Toggle theme"
+                        >
+                            {theme === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+                        </IconButton>
+                    </Box>
                 </DialogContent>
-                <DialogActions sx={{ borderTop: '1px solid rgba(255,255,255,0.08)', px: 3, pb: 2 }}>
-                    <Button onClick={() => setSettingsOpen(false)} sx={{ color: '#94a3b8' }}>
+                <DialogActions sx={{ borderTop: '1px solid var(--border)', px: 3, pb: 2 }}>
+                    <Button onClick={() => setSettingsOpen(false)} sx={{ color: 'var(--text-secondary)' }}>
                         Keep Current Settings
                     </Button>
-                    <Button onClick={handleSaveSettings} variant="contained" sx={{ backgroundColor: '#3b82f6' }}>
+                    <Button onClick={handleSaveSettings} variant="contained" sx={{ backgroundColor: 'var(--accent-blue)' }}>
                         Save Settings
                     </Button>
                 </DialogActions>
