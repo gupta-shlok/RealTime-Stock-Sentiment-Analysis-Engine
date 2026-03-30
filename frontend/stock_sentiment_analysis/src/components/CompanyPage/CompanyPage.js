@@ -5,6 +5,7 @@ import { getNewsData, getSentimentTrends, getStockNarrative } from '../../apis/a
 import NewsItem from '../NewsItem/NewsItem';
 import { ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Skeleton, Button } from '@mui/material';
+import { CHART_THEME } from '../../utils/chartTheme';
 import './CompanyPage.css';
 
 const CompanyPage = () => {
@@ -59,7 +60,7 @@ const CompanyPage = () => {
         setTrendsError(null);
         getSentimentTrends(ticker, '7d')
             .then(data => {
-                setSentimentTrends(data.trends || []);
+                setSentimentTrends(data.data || []);
                 setTrendsLoading(false);
             })
             .catch(() => {
@@ -134,7 +135,7 @@ const CompanyPage = () => {
                     <h3>Performance + Sentiment (7 Days)</h3>
                     <div className="chart-wrapper">
                         {trendsLoading ? (
-                            <Skeleton variant="rectangular" height={300} sx={{ borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.08)' }} />
+                            <Skeleton variant="rectangular" height={300} sx={{ borderRadius: '16px', backgroundColor: 'var(--bg-elevated)' }} />
                         ) : trendsError ? (
                             <div className="chart-error">
                                 <p>{trendsError}</p>
@@ -142,9 +143,9 @@ const CompanyPage = () => {
                                     setTrendsLoading(true);
                                     setTrendsError(null);
                                     getSentimentTrends(ticker, '7d')
-                                        .then(d => { setSentimentTrends(d.trends || []); setTrendsLoading(false); })
+                                        .then(d => { setSentimentTrends(d.data || []); setTrendsLoading(false); })
                                         .catch(() => { setTrendsError(`Could not load sentiment trends for ${ticker}.`); setTrendsLoading(false); });
-                                }} sx={{ color: '#94a3b8', borderColor: '#475569', mt: 1 }}>
+                                }} sx={{ color: 'var(--text-secondary)', borderColor: 'var(--text-disabled)', mt: 1 }}>
                                     Retry
                                 </Button>
                             </div>
@@ -157,16 +158,16 @@ const CompanyPage = () => {
                                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
-                                    <XAxis dataKey="Date" stroke="#94a3b8" fontSize={11} tick={{ fill: '#94a3b8' }} />
-                                    <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" fontSize={11}
-                                        tick={{ fill: '#94a3b8' }} domain={['auto', 'auto']}
+                                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.gridColor} />
+                                    <XAxis dataKey="Date" stroke={CHART_THEME.axisColor} fontSize={11} tick={{ fill: CHART_THEME.axisColor }} />
+                                    <YAxis yAxisId="left" orientation="left" stroke={CHART_THEME.priceStroke} fontSize={11}
+                                        tick={{ fill: CHART_THEME.axisColor }} domain={['auto', 'auto']}
                                         tickFormatter={v => `$${v.toFixed(0)}`} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={11}
-                                        tick={{ fill: '#94a3b8' }} domain={[-1, 1]}
+                                    <YAxis yAxisId="right" orientation="right" stroke={CHART_THEME.axisColor} fontSize={11}
+                                        tick={{ fill: CHART_THEME.axisColor }} domain={[-1, 1]}
                                         tickFormatter={v => v.toFixed(1)} />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                        contentStyle={{ backgroundColor: CHART_THEME.tooltipBg, border: 'none', borderRadius: '8px', color: '#fff' }}
                                     />
                                     <Area yAxisId="left" type="monotone" dataKey="Close"
                                         stroke="#3b82f6" strokeWidth={2}
@@ -203,7 +204,7 @@ const CompanyPage = () => {
                     <h3 className="section-label">AI Market Narrative</h3>
                     {narrativeLoading ? (
                         <>
-                            <Skeleton variant="rectangular" height={96} sx={{ borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.08)', mb: 1 }} />
+                            <Skeleton variant="rectangular" height={96} sx={{ borderRadius: '8px', backgroundColor: 'var(--bg-elevated)', mb: 1 }} />
                             <p className="narrative-pending-caption">Generating narrative...</p>
                         </>
                     ) : narrativeError ? (
@@ -225,7 +226,7 @@ const CompanyPage = () => {
                                 };
                                 poll();
                                 narrativePollRef.current = setInterval(poll, 10000);
-                            }} sx={{ color: '#94a3b8', borderColor: '#475569', mt: 1 }}>
+                            }} sx={{ color: 'var(--text-secondary)', borderColor: 'var(--text-disabled)', mt: 1 }}>
                                 Retry
                             </Button>
                         </div>
