@@ -23,7 +23,12 @@ const SectorSentimentRow = () => {
         setError(null);
         getSectorSentiment()
             .then(data => {
-                setSectors(data.sectors || []);
+                const arr = Object.entries(data).map(([sector, info]) => ({
+                    sector,
+                    avg_score: info.score,
+                    stock_count: info.stock_count,
+                }));
+                setSectors(arr);
                 setLoading(false);
             })
             .catch(() => {
@@ -38,7 +43,7 @@ const SectorSentimentRow = () => {
         return (
             <div className="sector-row">
                 {[1, 2, 3, 4, 5].map(i => (
-                    <Skeleton key={i} variant="rectangular" height={80} sx={{ borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.08)', flex: '1 1 150px' }} />
+                    <Skeleton key={i} variant="rectangular" height={80} sx={{ borderRadius: '8px', backgroundColor: 'var(--bg-elevated)', flex: '1 1 150px' }} />
                 ))}
             </div>
         );
@@ -48,7 +53,7 @@ const SectorSentimentRow = () => {
         return (
             <div className="sector-row-error">
                 <p>{error}</p>
-                <Button variant="outlined" size="small" onClick={fetchSectors} sx={{ color: '#94a3b8', borderColor: '#475569', mt: 1 }}>
+                <Button variant="outlined" size="small" onClick={fetchSectors} sx={{ color: 'var(--text-secondary)', borderColor: 'var(--text-disabled)', mt: 1 }}>
                     Retry
                 </Button>
             </div>
@@ -63,7 +68,7 @@ const SectorSentimentRow = () => {
                     ? (sector.avg_score >= 0 ? '+' : '') + sector.avg_score.toFixed(2)
                     : 'N/A';
                 return (
-                    <div key={sector.sector} className="sector-card glass-card">
+                    <div key={sector.sector} className="sector-card surface-card">
                         <span className="section-label">{sector.sector}</span>
                         <span className="sector-score" style={{ color }}>{scoreStr}</span>
                         <span className="sector-count">{sector.stock_count} stocks</span>

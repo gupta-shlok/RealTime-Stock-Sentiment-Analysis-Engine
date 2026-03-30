@@ -44,3 +44,11 @@ body {
     background: rgba(220, 38, 38, 0.15);
     color: var(--color-negative);
 }
+
+/* Surface card utility — replaces .glass-card globally (D-28, D-29) */
+.surface-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+}

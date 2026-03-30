@@ -1,6 +1,7 @@
 import React, { useContext, useMemo, useRef } from 'react';
 import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
 import { StockDataContext } from '../../context/StockDataContext';
+import { useNavigate } from 'react-router-dom';
 import './SentimentHeatmap.css';
 
 // Interpolate between two hex colors by fraction t in [0, 1]
@@ -37,7 +38,7 @@ function buildTreemapData(stocks) {
     stocks.forEach(stock => {
         const sentiment = stock.sentiment_score ?? null;
         const marketCap = stock.market_cap ?? 1;
-        const node = { name: stock.name, value: marketCap, sentiment, displayName: stock.name };
+        const node = { name: stock.name, value: marketCap, sentiment, displayName: stock.name, current_close: stock.current_close, percent_change: stock.percent_change };
 
         if (FEW_STOCK_TICKERS.has(stock.name)) {
             otherChildren.push(node);
@@ -60,19 +61,17 @@ function buildTreemapData(stocks) {
     return result;
 }
 
-const CustomTreemapContent = ({ x, y, width, height, name, sentiment, depth }) => {
+const CustomTreemapContent = ({ x, y, width, height, name, sentiment, depth, onCellClick }) => {
     if (depth === 0) {
         // Sector group node — render semi-transparent label overlay
         const isOther = name === 'OTHER';
-        const labelColor = isOther ? '#64748b' : '#94a3b8';
         return (
             <g>
                 <text
                     x={x + 6} y={y + 16}
                     fontSize={12} fontWeight={700}
                     letterSpacing="0.08em"
-                    fill={labelColor}
-                    style={{ textTransform: 'uppercase', pointerEvents: 'none' }}
+                    style={{ textTransform: 'uppercase', pointerEvents: 'none', fill: isOther ? 'var(--text-disabled)' : 'var(--text-secondary)' }}
                 >
                     {name}
                 </text>
@@ -83,7 +82,7 @@ const CustomTreemapContent = ({ x, y, width, height, name, sentiment, depth }) =
     const fill = getSentimentColor(sentiment);
     const showTicker = width > 40;
     return (
-        <g>
+        <g style={{ cursor: 'pointer' }} onClick={() => onCellClick(name)}>
             <rect
                 x={x + 1} y={y + 1}
                 width={Math.max(0, width - 2)} height={Math.max(0, height - 2)}
@@ -112,6 +111,11 @@ const CustomTreemapContent = ({ x, y, width, height, name, sentiment, depth }) =
 const SentimentHeatmap = () => {
     const { stocks, loading, error } = useContext(StockDataContext);
     const treeDataRef = useRef(null);
+    const navigate = useNavigate();
+
+    const handleCellClick = (ticker) => {
+        navigate(`/stock/${ticker}`);
+    };
 
     // Build treemap data; mutate in-place on updates to prevent re-animation (per D-10)
     // useMemo returns the SAME array reference if it already exists — we update values in-place
@@ -129,7 +133,7 @@ const SentimentHeatmap = () => {
 
     if (loading) {
         return (
-            <div className="heatmap-skeleton" style={{ height: 400, width: '100%', borderRadius: 16, background: 'rgba(255,255,255,0.08)' }} />
+            <div className="heatmap-skeleton" style={{ height: 400, width: '100%', borderRadius: 16, background: 'var(--bg-elevated)' }} />
         );
     }
 
@@ -151,7 +155,7 @@ const SentimentHeatmap = () => {
     }
 
     return (
-        <div className="sentiment-heatmap glass-card">
+        <div className="sentiment-heatmap surface-card">
             <h2 className="section-label">Market Sentiment</h2>
             <ResponsiveContainer width="100%" height={480}>
                 <Treemap
@@ -159,7 +163,7 @@ const SentimentHeatmap = () => {
                     dataKey="value"
                     aspectRatio={4 / 3}
                     isAnimationActive={false}
-                    content={<CustomTreemapContent />}
+                    content={<CustomTreemapContent onCellClick={handleCellClick} />}
                 >
                     <Tooltip
                         content={({ active, payload }) => {
