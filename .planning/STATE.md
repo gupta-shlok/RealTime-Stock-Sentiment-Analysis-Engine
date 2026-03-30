@@ -80,6 +80,7 @@ Phase 5 [████░░░░░░] 77%    UI Overhaul & Polish (1/3 plans 
 | Phase 05 P02 | 8 min | 2 tasks | 6 files |
 | Phase 05 P04 | 5 min | 3 tasks | 10 files |
 | Phase 06 P01 | 1 min | 3 tasks | 4 files |
+| Phase 06 P02 | 5 min | 2 tasks | 8 files |
 | Phase 06-visual-design-overhaul P03 | 100 seconds | 2 tasks | 3 files |
 
 ## Accumulated Context

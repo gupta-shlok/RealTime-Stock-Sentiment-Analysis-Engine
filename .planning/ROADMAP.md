@@ -123,7 +123,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — CSS token system (theme.css), FOUC prevention in index.html, theme state in StockDataContext (VIS-01, VIS-02, VIS-03)
-- [ ] 06-02-PLAN.md — TopBar rebrand + theme toggle + SentimentHeatmap/SectorSentimentRow/StockChart CSS refactor + .surface-card utility (VIS-04, VIS-05, VIS-06, VIS-07, VIS-09, VIS-10)
+- [x] 06-02-PLAN.md — TopBar rebrand + theme toggle + SentimentHeatmap/SectorSentimentRow/StockChart CSS refactor + .surface-card utility (VIS-04, VIS-05, VIS-06, VIS-07, VIS-09, VIS-10)
 - [ ] 06-03-PLAN.md — CompanyPage CSS/JS refactor, remove glassmorphism, remove duplicate CSS, chartTheme.js for Recharts constants (VIS-06, VIS-07, VIS-09, VIS-10)
 - [ ] 06-04-PLAN.md — NewsData card grid rewrite (hero + 3-column secondary), relative time, image fallback (VIS-08)
 
@@ -190,13 +190,13 @@ Plans:
 | VIS-01 | Phase 6 | Pending |
 | VIS-02 | Phase 6 | Pending |
 | VIS-03 | Phase 6 | Pending |
-| VIS-04 | Phase 6 | Pending |
-| VIS-05 | Phase 6 | Pending |
-| VIS-06 | Phase 6 | Pending |
-| VIS-07 | Phase 6 | Pending |
+| VIS-04 | Phase 6 | ✅ Complete |
+| VIS-05 | Phase 6 | ✅ Complete |
+| VIS-06 | Phase 6 | ✅ Complete |
+| VIS-07 | Phase 6 | ✅ Complete |
 | VIS-08 | Phase 6 | Pending |
-| VIS-09 | Phase 6 | Pending |
-| VIS-10 | Phase 6 | Pending |
+| VIS-09 | Phase 6 | ✅ Complete |
+| VIS-10 | Phase 6 | ✅ Complete |
 
 **Total v1 requirements:** 44
 **Mapped:** 44
