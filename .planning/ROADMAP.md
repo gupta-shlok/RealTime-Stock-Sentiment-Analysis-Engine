@@ -247,5 +247,36 @@ Plans:
 
 ---
 
+---
+
+## Backlog
+
+Future work captured for post-v1.0 roadmap. Use `/gsd:review-backlog` to promote items to active milestone.
+
+### Phase 999.1: Database Implementation (BACKLOG)
+
+**Goal**: [Captured for future planning]
+**Description**: Replace in-memory storage with persistent database (PostgreSQL/MongoDB) for production reliability and multi-instance support.
+**Requirements**: TBD
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.2: Custom Sentiment Page (BACKLOG)
+
+**Goal**: [Captured for future planning]
+**Description**: Build user-facing interface for submitting and managing custom sentiment data with validation and persistence.
+**Requirements**: TBD
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+**Note:** Phase 7 (Microservices Architecture) is already in the active roadmap and will be tackled after Phase 6 completion.
+
+---
+
 *Roadmap created: 2026-03-26*
 *Milestone: v1.0*
+*Backlog added: 2026-04-01*
