@@ -154,31 +154,75 @@ def _write_json_atomic(path: str, data: dict):
 def _run_scoring_cycle():
     """
     Synchronous scoring cycle — called from asyncio.to_thread().
-    Reads news_cache["news"], scores articles, writes sentiment_scores.json.
+    Fetches news directly for all tickers (bypasses cache) to ensure scoring works.
+    Scores articles, writes sentiment_scores.json.
     Format: { "AAPL": { "2026-03-28": 0.34, ... }, ... }
     Prunes entries older than 35 days on each write (D-09).
     """
     from datetime import timezone, timedelta
     from collections import defaultdict
 
-    cached_news = news_cache.get("news", [])
-    if not cached_news:
-        return
+    # Build ticker list: Tier1 (top 20) + Tier2 (next 40) for news fetching
+    pairs = []
+    for t in ALL_TICKERS:
+        data = TICKER_DATA.get(t, {})
+        mc = data.get('market_cap', 0)
+        if mc and mc > 0:
+            pairs.append((t, mc))
+    sorted_tickers = [t for t, _ in sorted(pairs, key=lambda x: x[1], reverse=True)]
+    tier1 = sorted_tickers[:20]
+    tier2_pool = sorted_tickers[20:60]
+    search_symbols = tier1 + tier2_pool
+
+    all_news = []
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        )
+    }
+
+    for symbol in search_symbols:
+        try:
+            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                continue
+            data = response.json()
+            items = data.get("news", [])
+            for item in items:
+                item_with_ticker = dict(item)
+                item_with_ticker["ticker"] = symbol
+                all_news.append(item_with_ticker)
+        except Exception as e:
+            print(f"Scoring cycle: error fetching {symbol}: {e}", flush=True)
+            continue
+
+    # Deduplicate by UUID
+    seen_uuids = set()
+    unique_news = []
+    for item in all_news:
+        uuid = item.get('uuid')
+        if uuid and uuid in seen_uuids:
+            continue
+        if uuid:
+            seen_uuids.add(uuid)
+        unique_news.append(item)
 
     # Group articles by (ticker, date)
-    # Expected news item shape from /news endpoint:
-    # {"ticker": "AAPL", "publishTime": "2026-03-28 10:30:00", "title": "...", ...}
     ticker_date_articles = defaultdict(lambda: defaultdict(list))
 
-    for article in cached_news:
+    for article in unique_news:
         ticker = article.get("ticker")
-        if not ticker:
-            continue
-        publish_time = article.get("publishTime", "")
+        publish_time = article.get("providerPublishTime") or article.get("publishTime")
         try:
-            date_str = publish_time[:10]  # "2026-03-28"
-            datetime.strptime(date_str, "%Y-%m-%d")  # validate format
-        except (ValueError, TypeError):
+            # providerPublishTime is a Unix timestamp (int); publishTime may be a date string
+            if isinstance(publish_time, (int, float)):
+                date_str = datetime.fromtimestamp(publish_time).strftime("%Y-%m-%d")
+            else:
+                date_str = str(publish_time)[:10]
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except (ValueError, TypeError, OSError):
             continue
         title = article.get("title", "")
         if not title:
@@ -226,6 +270,78 @@ async def sentiment_scoring_task():
         await asyncio.sleep(300)  # 5 minutes
 
 
+async def news_prefetch_task():
+    """
+    Background task: pre-warms news_cache["news"] on startup and refreshes every 10 minutes.
+    Prevents the first /news request from triggering a 60-ticker sequential fetch.
+    """
+    await asyncio.sleep(15)  # Let scoring task start first
+    while True:
+        try:
+            await asyncio.to_thread(_prefetch_news)
+        except Exception as e:
+            print(f"News prefetch task error: {e}", flush=True)
+        await asyncio.sleep(600)  # 10 minutes
+
+
+def _prefetch_news():
+    """Synchronous news fetch for all Tier1+Tier2 tickers — runs in thread pool."""
+    global TIER2_OFFSET
+    pairs = []
+    for t in ALL_TICKERS:
+        data = TICKER_DATA.get(t, {})
+        mc = data.get('market_cap', 0)
+        if mc and mc > 0:
+            pairs.append((t, mc))
+    sorted_tickers = [t for t, _ in sorted(pairs, key=lambda x: x[1], reverse=True)]
+    tier1 = sorted_tickers[:20]
+    tier2_pool = sorted_tickers[20:60]
+    n = len(tier2_pool)
+    if n > 0:
+        start = TIER2_OFFSET % n
+        tier2 = [tier2_pool[(start + i) % n] for i in range(min(40, n))]
+    else:
+        tier2 = []
+    search_symbols = tier1 + tier2
+
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        )
+    }
+    all_news = []
+    seen_uuids = set()
+    for symbol in search_symbols:
+        try:
+            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                continue
+            items = response.json().get("news", [])
+            for item in items:
+                uuid = item.get('uuid')
+                if uuid and uuid in seen_uuids:
+                    continue
+                if uuid:
+                    seen_uuids.add(uuid)
+                finance_info = item.get("finance", {})
+                is_premium = finance_info.get("premiumFinance", {}).get("isPremiumNews", False)
+                if not is_premium:
+                    title = item.get("title", "")
+                    fb_val = analyze_sentiment_ensemble(title)
+                    item['sentiment_score'] = float(fb_val)
+                    item['sentiment_label'] = label_from_score(fb_val)
+                    all_news.append(item)
+        except Exception as e:
+            print(f"News prefetch: error fetching {symbol}: {e}", flush=True)
+            continue
+
+    news_sorted = sorted(all_news, key=lambda x: x.get('providerPublishTime', 0), reverse=True)
+    news_cache["news"] = news_sorted[:20]
+    print(f"News prefetch complete: {len(news_cache['news'])} articles cached.", flush=True)
+
+
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -246,7 +362,9 @@ async def lifespan(app: FastAPI):
     _warmup_score, _ = finbert_score("Warm-up sentence for FinBERT.")
     print(f"FinBERT loaded. Warm-up score: {_warmup_score:.3f}", flush=True)
 
-    # Load Qwen2.5-1.5B-Instruct (unchanged from Phase 2)
+    # TEMPORARY: Skip Qwen loading for faster UI verification (will restore after Phase 5 test)
+    # Qwen2.5-1.5B-Instruct loading takes 10-15 minutes on CPU; commenting out for now
+    """
     QWEN_MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
     qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL_ID)
     qwen_model = AutoModelForCausalLM.from_pretrained(
@@ -272,11 +390,14 @@ async def lifespan(app: FastAPI):
             do_sample=False,
             pad_token_id=qwen_tokenizer.eos_token_id
         )
-    print("Models loaded and warmed up.", flush=True)
+    """
+    print("Qwen loading skipped for verification (will restore after UI test).", flush=True)
 
     # Start background workers
-    asyncio.create_task(qwen_worker())
+    # asyncio.create_task(qwen_worker())  # Skipped due to Qwen being unloaded
     asyncio.create_task(sentiment_scoring_task())  # D-08: 5-minute background scorer
+    asyncio.create_task(stock_prefetch_task())      # Pre-warm stock cache on startup + every 14 min
+    asyncio.create_task(news_prefetch_task())       # Pre-warm news cache every 10 minutes
 
     yield
 
@@ -518,19 +639,12 @@ def clean_time(news):
     return news
 
 
-@app.get("/stock-price")
-async def get_stock_price():
-    if "stock_data" in stock_cache:
-        return stock_cache["stock_data"]
-
+def _fetch_stock_data_sync() -> dict:
+    """Synchronous yfinance fetch — runs in thread pool via asyncio.to_thread()."""
+    import time as _time
     symbols = ALL_TICKERS
-    # Split into two batches of 50 each (for 102 tickers => 50 + 52)
-    if len(symbols) > 50:
-        batches = [symbols[:50], symbols[50:]]
-    else:
-        batches = [symbols]
-
-    all_data = {}  # ticker -> data
+    batches = [symbols[:50], symbols[50:]] if len(symbols) > 50 else [symbols]
+    all_data = {}
 
     for i, batch in enumerate(batches):
         if not batch:
@@ -543,9 +657,7 @@ async def get_stock_price():
 
         for ticker in batch:
             try:
-                # Extract ticker-specific DataFrame from batch
                 if isinstance(batch_df.columns, pd.MultiIndex):
-                    # Determine which level contains ticker symbols (yfinance may use either orientation)
                     level0_vals = batch_df.columns.get_level_values(0).unique()
                     level1_vals = batch_df.columns.get_level_values(1).unique()
                     if ticker in level0_vals:
@@ -553,14 +665,11 @@ async def get_stock_price():
                     elif ticker in level1_vals:
                         ticker_df = batch_df.xs(ticker, axis=1, level=1)
                     else:
-                        # Ticker not found in either level, skip
                         continue
                 else:
-                    ticker_df = batch_df  # single ticker batch
+                    ticker_df = batch_df
 
-                if ticker_df.empty:
-                    continue
-                if 'Close' not in ticker_df.columns:
+                if ticker_df.empty or 'Close' not in ticker_df.columns:
                     continue
 
                 close_series = ticker_df['Close']
@@ -572,44 +681,68 @@ async def get_stock_price():
                     previous_close = current_close
                 percent_change = ((current_close - previous_close) / previous_close * 100) if previous_close != 0 else 0.0
 
-                # Monthly aggregation: group by month from DatetimeIndex
                 if not isinstance(ticker_df.index, pd.DatetimeIndex):
-                    # Skip if index is not datetime
                     history = []
                 else:
-                    ticker_df['Month'] = ticker_df.index.to_period('M')
-                    monthly_agg = ticker_df.groupby('Month').agg({
-                        'Open': 'first',
-                        'Close': 'last',
-                        'High': 'max',
-                        'Low': 'min'
-                    })
-                    monthly_agg = monthly_agg.reset_index()
-                    monthly_agg['Month'] = monthly_agg['Month'].dt.strftime('%Y-%m')
-                    history = monthly_agg.to_dict(orient='records')
+                    ticker_df = ticker_df.sort_index().tail(30)
+                    daily = ticker_df.reset_index()
+                    if 'Date' not in daily.columns:
+                        daily = daily.rename(columns={daily.columns[0]: 'Date'})
+                    daily['Date'] = daily['Date'].dt.strftime('%Y-%m-%d')
+                    history = daily[['Date', 'Open', 'Close', 'High', 'Low']].to_dict(orient='records')
 
                 all_data[ticker] = {
                     "current_close": float(current_close),
                     "previous_close": float(previous_close),
                     "percent_change": float(percent_change),
-                    "history": history
+                    "history": history,
+                    "market_cap": float(TICKER_DATA.get(ticker, {}).get('market_cap', 1))
                 }
             except Exception as e:
                 print(f"Error processing {ticker} in batch: {e}", flush=True)
                 continue
 
-        # Polite delay between batches (1.5s) except after last batch
         if i < len(batches) - 1:
-            await asyncio.sleep(1.5)
+            _time.sleep(1.5)  # polite delay between batches
 
-    # Reorganize data by GICS sector
+    # Attach sentiment scores and group by sector
+    all_scores = _load_scores_file()
     sector_data = {}
     for ticker, data in all_data.items():
+        ticker_scores = all_scores.get(ticker, {})
+        latest_score = None
+        if ticker_scores:
+            latest_date = max(ticker_scores.keys())
+            latest_score = ticker_scores[latest_date]
+        data["sentiment_score"] = latest_score if latest_score is not None else 0.0
         sector = TICKER_DATA.get(ticker, {}).get('sector', 'Unknown')
         sector_data.setdefault(sector, {})[ticker] = data
 
     stock_cache["stock_data"] = sector_data
+    print(f"Stock data fetch complete: {len(all_data)} tickers.", flush=True)
     return sector_data
+
+
+async def stock_prefetch_task():
+    """
+    Background task: pre-warms stock_cache on startup and refreshes every 14 minutes
+    (just under the 15-minute TTL). Prevents cold-start latency on /stock-price.
+    """
+    await asyncio.sleep(5)  # Let model warm-up finish first
+    while True:
+        try:
+            await asyncio.to_thread(_fetch_stock_data_sync)
+        except Exception as e:
+            print(f"Stock prefetch task error: {e}", flush=True)
+        await asyncio.sleep(840)  # 14 minutes (TTL is 15 min)
+
+
+@app.get("/stock-price")
+async def get_stock_price():
+    if "stock_data" in stock_cache:
+        return stock_cache["stock_data"]
+    # Cache miss — fetch in thread pool so the event loop stays unblocked
+    return await asyncio.to_thread(_fetch_stock_data_sync)
 
 
 @app.get("/news")

@@ -11,6 +11,7 @@ body {
     padding-bottom: 48px;
     background-color: var(--bg-page);
     color: var(--text-primary);
+    font-family: var(--font-family);
 }
 
 /* Global typography utility */

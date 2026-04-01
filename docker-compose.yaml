@@ -6,20 +6,25 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - API_KEY=dev-key-optional
       - DEPLOYMENT_ENV=local
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    volumes:
+      - ./backend/data:/app/data
+    # GPU disabled - using CPU. Uncomment below if you have a supported GPU.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   frontend:
-    build: ./frontend/stock_sentiment_analysis
+    build:
+      context: ./frontend/stock_sentiment_analysis
+      args:
+        - REACT_APP_API_URL=http://localhost:8000
     ports:
       - "3000:80"
-    depends_on:
-      - backend
     environment:
       - REACT_APP_API_URL=http://localhost:8000

@@ -1,6 +1,7 @@
 /* theme.css — CSS custom property token system for StockSentimentSense */
 /* Dark theme (default) — :root values apply when no data-theme attribute is present */
 :root {
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     --bg-page:        #0f172a;
     --bg-surface:     #1e293b;
     --bg-elevated:    #334155;

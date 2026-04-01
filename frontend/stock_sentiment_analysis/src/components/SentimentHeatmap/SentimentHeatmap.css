@@ -20,7 +20,13 @@
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: 14px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+}
+
+.tooltip-sector {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
 }
 
 .tooltip-price {

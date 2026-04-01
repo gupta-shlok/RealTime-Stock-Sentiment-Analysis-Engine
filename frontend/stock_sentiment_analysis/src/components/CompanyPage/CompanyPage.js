@@ -174,9 +174,10 @@ const CompanyPage = () => {
                                         fill="url(#colorPriceFill)"
                                         isAnimationActive={false}
                                         dot={false} />
-                                    <Bar yAxisId="right" dataKey="sentiment" isAnimationActive={false}>
+                                    <Bar yAxisId="right" dataKey="sentiment" isAnimationActive={false}
+                                        barSize={6} radius={[4, 4, 4, 4]}>
                                         {chartDataWithSentiment.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={(entry.sentiment ?? 0) >= 0 ? '#4ade80' : '#f87171'} />
+                                            <Cell key={`cell-${index}`} fill={(entry.sentiment ?? 0) >= 0 ? 'rgba(74,222,128,0.55)' : 'rgba(248,113,113,0.55)'} />
                                         ))}
                                     </Bar>
                                 </ComposedChart>
