@@ -28,12 +28,12 @@ A recruiter or engineer who opens this app should immediately see what makes sto
 - ✓ Richer AI insights — per-stock Qwen narrative via /stock-narrative/{ticker} with job queue — Validated in Phase 4: Sentiment Intelligence Upgrade
 - ✓ FinBERT full-probability scoring — confidence-weighted aggregation, 35-day persistent scores — Validated in Phase 4: Sentiment Intelligence Upgrade
 
-### Active
+### V1.0 Complete
 
-- [ ] Sentiment heatmap — grid of all 100 stocks color-coded by current sentiment score
-- [ ] Auto-refresh with visible last-updated timestamp (5–15 min polling)
-- [ ] UI polish — skeleton loaders, proper error states, responsive layout, cohesive visual design
-- [ ] Remove stale AWS Amplify / legacy API Gateway references from frontend
+- ✓ Sentiment heatmap — grid of all 100 stocks color-coded by current sentiment score (Phase 5)
+- ✓ Auto-refresh with visible last-updated timestamp (10 min polling with visibility guard) (Phase 5)
+- ✓ UI polish — skeleton loaders, proper error states, responsive layout, cohesive visual design (Phase 5)
+- ✓ Visual design overhaul — dark design system, CSS variables, modern typography (Inter font), theme toggle (Phase 6)
 
 ### Out of Scope
 
@@ -94,4 +94,5 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 — Phase 4 complete (Sentiment Intelligence Upgrade)*
+*Last updated: 2026-04-01 — v1.0 complete (Phases 1–6 delivered)*
+*Next milestone: v1.1 (Phases 7–8) — Microservices Architecture + Automated Test Suite*
